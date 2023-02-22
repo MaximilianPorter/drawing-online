@@ -4,14 +4,16 @@ const server = require("http").Server(app);
 const io = require("socket.io")(server);
 const { v4: uuidV4 } = require("uuid");
 
+const rooms = new Set();
+
 app.use(express.static("public"));
 
 app.get("/", (req, res) => {
   res.sendFile(__dirname + "/public/index.html");
 });
 
-app.get("/drawing", (req, res) => {
-  res.redirect(`../room/${uuidV4()}`);
+app.get("/create-random-room", (req, res) => {
+  res.redirect(`../room/${uuidV4().split("-").at(-1)}`);
 });
 
 app.get("/room/:room", (req, res) => {
@@ -19,9 +21,35 @@ app.get("/room/:room", (req, res) => {
 });
 
 io.on("connection", (socket) => {
+  socket.on("join-random-room", (userId) => {
+    let roomId;
+    for (const room of rooms) {
+      const socketRoom = io.sockets.adapter.rooms.get(room);
+      const numClients = socketRoom ? socketRoom.size : 0;
+      if (numClients > 0) {
+        roomId = room;
+        break;
+      }
+    }
+
+    // if no room is found, create a new one
+    if (!roomId) {
+      roomId = uuidV4().split("-").at(-1);
+    }
+    socket.emit("found-random-room", roomId);
+  });
+
   socket.on("join-room", (roomId, userId) => {
     socket.join(roomId);
-    // socket.to(roomId).emit("user-connected", userId);
+    rooms.add(roomId);
+
+    socket.on("get-open-rooms", () => {
+      socket.to(roomId).emit("get-open-rooms", [...rooms]);
+    });
+
+    // add user to users array in room if it exists, otherwise create room
+    // roomsOpen[roomId]?.users.push(userId) ??
+    //   (roomsOpen[roomId] = { users: [userId] });
 
     socket.on("connection-request", () => {
       socket.to(roomId).emit("new-user-connected", userId);

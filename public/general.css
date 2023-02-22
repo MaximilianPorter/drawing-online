@@ -1,3 +1,11 @@
+:root {
+  --secondary: #2b2d42ff;
+  --gray: #8d99aeff;
+  --white: #edf2f4ff;
+  --primary-light: #ef233cff;
+  --primary: #d90429ff;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -6,4 +14,13 @@
 
 html {
   font-size: 62.5%;
+}
+
+.visually-hidden {
+  display: none !important;
+}
+
+.pointer-events-none {
+  pointer-events: none !important;
+  z-index: 1 !important;
 }

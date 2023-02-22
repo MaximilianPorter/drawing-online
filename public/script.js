@@ -13,6 +13,9 @@ const colorPickerInput = document.querySelector("#picker");
 const sizeSliderEl = document.querySelector(".size-slider");
 const sizeSliderFillEl = document.querySelector(".size-slider--fill");
 const saveDrawingBtn = document.querySelector(".save-drawing");
+const usernameDisplayEl = document.querySelector(".username-display");
+
+const debugLogRoomsBtn = document.querySelector(".debug-log-rooms");
 
 // these are set later in myPeer open event
 
@@ -25,6 +28,8 @@ let canvas = createCanvas(myPeer.id);
 const peers = {};
 const userData = {};
 
+const username = localStorage.getItem("username");
+usernameDisplayEl.textContent = username;
 let painting = false;
 let localBrushSize = 0.25;
 let colorPickerFocused = false;
@@ -39,14 +44,26 @@ myPeer.on("open", (id) => {
   userData[myPeer.id] = new UserData(canvas.getContext("2d"));
 
   // Redirect to a random room ID if none is specified in the URL
-  if (!window.location.pathname.slice(1)) {
-    window.location.pathname = `/${Math.random().toString(36).substring(2, 8)}`;
+  // if (!window.location.pathname.slice(6)) {
+  //   window.location.pathname = `/${Math.random().toString(36).substring(2, 8)}`;
+  // }
+
+  const roomId = window.location.pathname.slice(6);
+  console.log("Room ID: " + roomId);
+
+  if (roomId !== "find") {
+    console.log("creating or joining specific room");
+    socket.emit("join-room", roomId, id);
+  } else {
+    console.log("joining random room");
+    socket.emit("join-random-room", id);
   }
 
-  const roomId = window.location.pathname.slice(1);
-  console.log("Room ID: " + roomId);
-  socket.emit("join-room", roomId, id);
   socket.emit("connection-request", roomId, id);
+
+  socket.on("found-random-room", (roomId) => {
+    window.location.pathname = `/room/${roomId}`;
+  });
 
   socket.on("new-user-connected", (userId) => {
     if (userId != myPeer.id) {
@@ -54,11 +71,6 @@ myPeer.on("open", (id) => {
       peers[userId] = connectToNewUser(userId);
 
       userData[userId] = new UserData(createCanvas(userId).getContext("2d"));
-      // userData[userId] = {
-      //   context: createCanvas(userId).getContext("2d"),
-      //   color: "#000000",
-      //   brushSize: 0.25,
-      // };
     }
   });
 
@@ -68,11 +80,6 @@ myPeer.on("open", (id) => {
 
     console.log(`OTHER USER: `, id);
     userData[id] = new UserData(createCanvas(id).getContext("2d"));
-    // userData[id] = {
-    //   context: createCanvas(id).getContext("2d"),
-    //   color: "#000000",
-    //   brushSize: 0.25,
-    // };
   });
 
   socket.on("user-disconnected", (userId) => {
@@ -109,6 +116,10 @@ myPeer.on("open", (id) => {
     }
   });
 
+  socket.on("get-open-rooms", (rooms) => {
+    console.log(`rooms: `, rooms);
+  });
+
   document.addEventListener("mousedown", startPath);
   document.addEventListener("mouseup", endPath);
   canvas.addEventListener("mouseleave", () => {
@@ -127,6 +138,11 @@ myPeer.on("open", (id) => {
     // Send the mouse position to other clients in the same room
     socket.emit("draw", { id: myPeer.id, x, y });
   });
+});
+
+debugLogRoomsBtn.addEventListener("click", () => {
+  console.log("request open rooms...");
+  socket.emit("get-open-rooms");
 });
 
 // change color of path to selected color
