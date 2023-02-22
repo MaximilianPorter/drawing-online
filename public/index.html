@@ -16,9 +16,8 @@
   </head>
   <body>
     <div class="page-container">
-      <!-- creates an input radio field for choosing a path color -->
       <form class="color-picker">
-        <input
+        <!-- <input
           type="radio"
           name="color"
           value="red"
@@ -59,8 +58,11 @@
           class="color-picker--input"
           checked="checked"
         />
-        <label for="black" class="visually-hidden">Black</label>
+        <label for="black" class="visually-hidden">Black</label> -->
+        <input type="color" name="color" value="#000" id="picker" />
+        <label for="picker" class="visually-hidden">Color Picker</label>
       </form>
+      <div class="canvas-container"></div>
       <!-- <canvas class="canvas" height="500" width="500"></canvas> -->
     </div>
   </body>

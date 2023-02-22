@@ -1,5 +1,5 @@
 const socket = io("/");
-const pageContainer = document.querySelector(".page-container");
+const canvasContainer = document.querySelector(".canvas-container");
 const colorPickerForm = document.querySelector(".color-picker");
 
 // these are set later in myPeer open event
@@ -24,7 +24,7 @@ myPeer.on("open", (id) => {
 
   userData[myPeer.id] = {
     context: canvas.getContext("2d"),
-    color: black,
+    color: "#000000",
   };
 
   // Redirect to a random room ID if none is specified in the URL
@@ -43,19 +43,19 @@ myPeer.on("open", (id) => {
 
       userData[userId] = {
         context: createCanvas(userId).getContext("2d"),
-        color: black,
+        color: "#000000",
       };
     }
   });
 
-  myPeer.on("connection", (data) => {
-    id = data.peer;
+  myPeer.on("connection", (conn) => {
+    id = conn.peer;
     if (id === myPeer.id) return;
 
     console.log(`OTHER USER: `, id);
     userData[id] = {
       context: createCanvas(id).getContext("2d"),
-      color: black,
+      color: "#000000",
     };
   });
 
@@ -123,9 +123,12 @@ function createCanvas(userId) {
   const localCanvas = document.createElement("canvas");
   localCanvas.classList.add("canvas");
   localCanvas.id = userId;
+  if (userId !== myPeer.id) {
+    localCanvas.classList.add("pointer-events-none");
+  }
   localCanvas.width = 500;
   localCanvas.height = 500;
-  pageContainer.insertAdjacentElement("beforeend", localCanvas);
+  canvasContainer.insertAdjacentElement("beforeend", localCanvas);
 
   return localCanvas;
 }
