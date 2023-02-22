@@ -1,0 +1,65 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 62.5%;
+}
+
+.page-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+#canvas {
+  height: 500px;
+  width: 500px;
+  background-color: #fff;
+  border: 1px solid #000;
+}
+
+.color-picker {
+  /* background-color: red; */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1.6rem;
+  padding: 1.6rem;
+}
+
+.color-picker--input {
+  appearance: none;
+  height: 2rem;
+  width: 2rem;
+  outline: 3px solid var(--radio-color, currentColor);
+  outline-offset: 3px;
+  border-radius: 50%;
+}
+
+.color-picker--input:checked {
+  background-color: var(--radio-color);
+}
+
+.color-picker--input#red {
+  --radio-color: #f00;
+}
+.color-picker--input#blue {
+  --radio-color: blue;
+}
+.color-picker--input#green {
+  --radio-color: green;
+}
+.color-picker--input#yellow {
+  --radio-color: yellow;
+}
+.color-picker--input#black {
+  --radio-color: black;
+}
+
+.visually-hidden {
+  display: none;
+}
