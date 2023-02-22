@@ -7,11 +7,15 @@ const { v4: uuidV4 } = require("uuid");
 app.use(express.static("public"));
 
 app.get("/", (req, res) => {
-  res.redirect(`${uuidV4()}`);
+  res.sendFile(__dirname + "/public/index.html");
 });
 
-app.get("/:room", (req, res) => {
-  res.sendFile(__dirname + "/public/index.html");
+app.get("/drawing", (req, res) => {
+  res.redirect(`../room/${uuidV4()}`);
+});
+
+app.get("/room/:room", (req, res) => {
+  res.sendFile(__dirname + "/public/drawing.html");
 });
 
 io.on("connection", (socket) => {

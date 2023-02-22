@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <script
+      defer
+      src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"
+    ></script>
+    <script defer src="/socket.io/socket.io.js"></script>
+    <link rel="stylesheet" href="/general.css" />
+    <link rel="stylesheet" href="/drawingStyle.css" />
+    <script defer src="/script.js"></script>
+    <title>Mouse Stuff</title>
+  </head>
+  <body>
+    <button type="button" class="save-drawing">Save</button>
+    <div class="page-container">
+      <form class="color-picker-form">
+        <!-- <input
+          type="radio"
+          name="color"
+          value="red"
+          id="red"
+          class="color-picker--input"
+        />
+
+        <label for="red" class="visually-hidden">Red</label>
+        <input
+          type="radio"
+          name="color"
+          value="blue"
+          id="blue"
+          class="color-picker--input"
+        />
+        <label for="blue" class="visually-hidden">Blue</label>
+        <input
+          type="radio"
+          name="color"
+          value="green"
+          id="green"
+          class="color-picker--input"
+        />
+        <label for="green" class="visually-hidden">Green</label>
+        <input
+          type="radio"
+          name="color"
+          value="yellow"
+          id="yellow"
+          class="color-picker--input"
+        />
+        <label for="yellow" class="visually-hidden">Yellow</label>
+        <input
+          type="radio"
+          name="color"
+          value="black"
+          id="black"
+          class="color-picker--input"
+          checked="checked"
+        />
+        <label for="black" class="visually-hidden">Black</label> -->
+        <input type="color" name="color" value="#000000" id="picker" />
+        <label for="picker" class="visually-hidden">Color Picker</label>
+        <div class="size-slider">
+          <div class="size-slider--fill">
+            <div class="size-slider--handle"></div>
+          </div>
+        </div>
+      </form>
+      <div class="canvas-container"></div>
+      <!-- <canvas class="canvas" height="500" width="500"></canvas> -->
+    </div>
+  </body>
+</html>

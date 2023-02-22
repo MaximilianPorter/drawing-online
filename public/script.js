@@ -44,6 +44,7 @@ myPeer.on("open", (id) => {
   }
 
   const roomId = window.location.pathname.slice(1);
+  console.log("Room ID: " + roomId);
   socket.emit("join-room", roomId, id);
   socket.emit("connection-request", roomId, id);
 
