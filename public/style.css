@@ -13,6 +13,7 @@ html {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 20px;
 }
 
 .canvas {
@@ -20,6 +21,7 @@ html {
   width: 500px;
   background-color: transparent;
   border: 1px solid #000;
+  border-radius: 10px;
 
   /* position: absolute;
   top: 100px;
@@ -33,22 +35,52 @@ html {
   grid-template-columns: repeat(auto-fit, minmax(500px, auto));
   justify-content: center;
   align-items: center;
-  gap: 10px;
+  gap: 20px;
+}
+
+.color-picker-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.6rem;
 }
 
 #picker {
   /* box-shadow: 0 0 10px #000; */
   width: 5rem;
   height: 5rem;
+  cursor: pointer;
+}
+
+.size-slider {
+  width: 200px;
+  height: 10px;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 9999px;
+  cursor: pointer;
+}
+.size-slider--fill {
+  height: 100%;
+  width: 50%;
+  background-color: #000;
+  border-radius: 9999px;
+  position: relative;
+}
+.size-slider--handle {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translate(50%, -50%);
+
+  background-color: aqua;
+  border-radius: 50%;
+  height: 20px;
+  width: 20px;
 }
 /* 
 
-.color-picker {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 1.6rem;
-}
+
 .color-picker--input {
   appearance: none;
   height: 2rem;

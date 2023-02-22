@@ -1,6 +1,8 @@
 const socket = io("/");
 const canvasContainer = document.querySelector(".canvas-container");
-const colorPickerForm = document.querySelector(".color-picker");
+const colorPickerForm = document.querySelector(".color-picker-form");
+const sizeSliderEl = document.querySelector(".size-slider");
+const sizeSliderFillEl = document.querySelector(".size-slider--fill");
 
 // these are set later in myPeer open event
 
@@ -14,6 +16,7 @@ const peers = {};
 const userData = {};
 
 let painting = false;
+let localBrushSize = 0.5;
 
 // Set the canvas dimensions to match the window size
 // canvas.width = window.innerWidth;
@@ -25,6 +28,7 @@ myPeer.on("open", (id) => {
   userData[myPeer.id] = {
     context: canvas.getContext("2d"),
     color: "#000000",
+    brushSize: 0.5,
   };
 
   // Redirect to a random room ID if none is specified in the URL
@@ -44,6 +48,7 @@ myPeer.on("open", (id) => {
       userData[userId] = {
         context: createCanvas(userId).getContext("2d"),
         color: "#000000",
+        brushSize: 0.5,
       };
     }
   });
@@ -56,6 +61,7 @@ myPeer.on("open", (id) => {
     userData[id] = {
       context: createCanvas(id).getContext("2d"),
       color: "#000000",
+      brushSize: 0.5,
     };
   });
 
@@ -87,6 +93,12 @@ myPeer.on("open", (id) => {
     }
   });
 
+  socket.on("brush-size-change", (data) => {
+    if (data.id !== myPeer.id) {
+      userData[data.id].brushSize = data.brushSize;
+    }
+  });
+
   document.addEventListener("mousedown", startPath);
   document.addEventListener("mouseup", endPath);
   canvas.addEventListener("mouseleave", () => {
@@ -109,14 +121,38 @@ myPeer.on("open", (id) => {
 
 // change color of path to selected color
 colorPickerForm.addEventListener("change", () => {
-  // console.log(userData[myPeer.id].context);
-  // paths[myPeer.id].strokeStyle = colorPickerForm.color.value;
-  // console.log("color changed to: " + colorPickerForm.color.value);
   userData[myPeer.id].color = colorPickerForm.color.value;
   socket.emit("color-change", {
     id: myPeer.id,
     color: colorPickerForm.color.value,
   });
+});
+
+let changingBrushSize = false;
+sizeSliderEl.addEventListener("mousedown", () => {
+  changingBrushSize = true;
+});
+document.addEventListener("mousemove", (event) => {
+  if (changingBrushSize) {
+    let percentage01 = clamp(
+      (event.pageX - sizeSliderEl.offsetLeft) /
+        sizeSliderEl.getBoundingClientRect().width,
+      0,
+      1
+    );
+    localBrushSize = percentage01;
+    sizeSliderFillEl.style.width = `${percentage01 * 100}%`;
+  }
+});
+document.addEventListener("mouseup", () => {
+  if (changingBrushSize) {
+    changingBrushSize = false;
+    userData[myPeer.id].brushSize = localBrushSize;
+    socket.emit("brush-size-change", {
+      id: myPeer.id,
+      brushSize: localBrushSize,
+    });
+  }
 });
 
 function createCanvas(userId) {
@@ -161,7 +197,7 @@ function endPath() {
 function draw(userId, x, y) {
   userData[userId].context.strokeStyle = userData[userId].color;
   userData[userId].context.lineCap = "round";
-  userData[userId].context.lineWidth = 10;
+  userData[userId].context.lineWidth = userData[userId].brushSize * 50;
   userData[userId].context.lineJoin = "round";
 
   // if (!paths[userId]) {
@@ -180,4 +216,8 @@ function draw(userId, x, y) {
 
   // context.arc(x, y, 10, 0, 2 * Math.PI);
   // context.fill();
+}
+
+function clamp(val, min, max) {
+  return Math.min(Math.max(val, min), max);
 }
