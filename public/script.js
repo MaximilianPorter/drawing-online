@@ -56,6 +56,7 @@ myPeer.on("open", (id) => {
   document.addEventListener("mouseup", endPath);
   canvas.addEventListener("mouseleave", () => {
     paths[myPeer.id] = new Path2D();
+    socket.emit("end-path", myPeer.id);
   });
 
   canvas.addEventListener("mousemove", (event) => {
