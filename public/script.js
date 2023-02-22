@@ -50,8 +50,10 @@ myPeer.on("open", (id) => {
 
   myPeer.on("connection", (data) => {
     id = data.peer;
+    if (id === myPeer.id) return;
+
     console.log(`OTHER USER: `, id);
-    data[id] = {
+    userData[id] = {
       context: createCanvas(id).getContext("2d"),
       color: black,
     };
