@@ -31,8 +31,8 @@ io.on("connection", (socket) => {
       socket.to(roomId).emit("brush-size-change", data);
     });
 
-    socket.on("mousemove", (data) => {
-      socket.to(roomId).emit("mousemove", data);
+    socket.on("draw", (data) => {
+      socket.to(roomId).emit("draw", data);
     });
 
     socket.on("end-path", (data) => {

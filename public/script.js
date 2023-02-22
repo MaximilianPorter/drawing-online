@@ -1,8 +1,18 @@
+class UserData {
+  constructor(canvasContext) {
+    this.context = canvasContext;
+    this.color = "#000000";
+    this.brushSize = 0.25;
+  }
+}
+
 const socket = io("/");
 const canvasContainer = document.querySelector(".canvas-container");
 const colorPickerForm = document.querySelector(".color-picker-form");
+const colorPickerInput = document.querySelector("#picker");
 const sizeSliderEl = document.querySelector(".size-slider");
 const sizeSliderFillEl = document.querySelector(".size-slider--fill");
+const saveDrawingBtn = document.querySelector(".save-drawing");
 
 // these are set later in myPeer open event
 
@@ -16,7 +26,8 @@ const peers = {};
 const userData = {};
 
 let painting = false;
-let localBrushSize = 0.5;
+let localBrushSize = 0.25;
+let colorPickerFocused = false;
 
 // Set the canvas dimensions to match the window size
 // canvas.width = window.innerWidth;
@@ -25,11 +36,7 @@ let localBrushSize = 0.5;
 myPeer.on("open", (id) => {
   console.log(`Peer ID: ${id}`);
 
-  userData[myPeer.id] = {
-    context: canvas.getContext("2d"),
-    color: "#000000",
-    brushSize: 0.5,
-  };
+  userData[myPeer.id] = new UserData(canvas.getContext("2d"));
 
   // Redirect to a random room ID if none is specified in the URL
   if (!window.location.pathname.slice(1)) {
@@ -45,11 +52,12 @@ myPeer.on("open", (id) => {
       console.log("New user connected: " + userId);
       peers[userId] = connectToNewUser(userId);
 
-      userData[userId] = {
-        context: createCanvas(userId).getContext("2d"),
-        color: "#000000",
-        brushSize: 0.5,
-      };
+      userData[userId] = new UserData(createCanvas(userId).getContext("2d"));
+      // userData[userId] = {
+      //   context: createCanvas(userId).getContext("2d"),
+      //   color: "#000000",
+      //   brushSize: 0.25,
+      // };
     }
   });
 
@@ -58,11 +66,12 @@ myPeer.on("open", (id) => {
     if (id === myPeer.id) return;
 
     console.log(`OTHER USER: `, id);
-    userData[id] = {
-      context: createCanvas(id).getContext("2d"),
-      color: "#000000",
-      brushSize: 0.5,
-    };
+    userData[id] = new UserData(createCanvas(id).getContext("2d"));
+    // userData[id] = {
+    //   context: createCanvas(id).getContext("2d"),
+    //   color: "#000000",
+    //   brushSize: 0.25,
+    // };
   });
 
   socket.on("user-disconnected", (userId) => {
@@ -73,7 +82,7 @@ myPeer.on("open", (id) => {
   });
 
   // listen for other users to start their paths
-  socket.on("mousemove", (data) => {
+  socket.on("draw", (data) => {
     if (data.id !== myPeer.id) {
       draw(data.id, data.x, data.y);
     }
@@ -107,7 +116,7 @@ myPeer.on("open", (id) => {
   });
 
   canvas.addEventListener("mousemove", (event) => {
-    if (!painting) return;
+    if (!painting || colorPickerFocused) return;
     const x = event.clientX - canvas.offsetLeft;
     const y = event.clientY - canvas.offsetTop;
 
@@ -115,7 +124,7 @@ myPeer.on("open", (id) => {
     draw(myPeer.id, x, y);
 
     // Send the mouse position to other clients in the same room
-    socket.emit("mousemove", { id: myPeer.id, x, y });
+    socket.emit("draw", { id: myPeer.id, x, y });
   });
 });
 
@@ -127,6 +136,12 @@ colorPickerForm.addEventListener("change", () => {
     color: colorPickerForm.color.value,
   });
 });
+colorPickerInput.addEventListener("focus", () => {
+  colorPickerFocused = true;
+});
+colorPickerInput.addEventListener("blur", () => {
+  colorPickerFocused = false;
+});
 
 let changingBrushSize = false;
 sizeSliderEl.addEventListener("mousedown", () => {
@@ -137,7 +152,7 @@ document.addEventListener("mousemove", (event) => {
     let percentage01 = clamp(
       (event.pageX - sizeSliderEl.offsetLeft) /
         sizeSliderEl.getBoundingClientRect().width,
-      0,
+      0.01,
       1
     );
     localBrushSize = percentage01;
@@ -154,6 +169,23 @@ document.addEventListener("mouseup", () => {
     });
   }
 });
+
+// open canvas content in new window as image when save button is clicked
+saveDrawingBtn.addEventListener("click", () => {
+  const dataUrl = canvas.toDataURL("image/png");
+  const newWindow = window.open();
+  newWindow.document.write(
+    `<img style="display: block;-webkit-user-select: none;margin: auto;background-color: hsl(0, 0%, 90%);transition: background-color 300ms;" src="${dataUrl}">`
+  );
+  newWindow.document.querySelector(
+    "body"
+  ).style = `margin: 0px; background: #0e0e0e; height: 100%;display:flex;align-items:center;justify-content:center;`;
+});
+
+// if color picker form is open, disabled canvas mouse events
+// colorPickerForm.addEventListener("mousedown", () => {
+//   canvas.classList.add("pointer-events-none");
+// });
 
 function createCanvas(userId) {
   const localCanvas = document.createElement("canvas");
@@ -180,6 +212,7 @@ function connectToNewUser(userId) {
 }
 
 function startPath(event) {
+  if (colorPickerFocused) return;
   painting = true;
   draw(
     myPeer.id,
@@ -200,22 +233,10 @@ function draw(userId, x, y) {
   userData[userId].context.lineWidth = userData[userId].brushSize * 50;
   userData[userId].context.lineJoin = "round";
 
-  // if (!paths[userId]) {
-  //   console.log("Creating new path for user: " + userId);
-  //   paths[userId] = new Path2D();
-  // }
-
-  // paths[userId].lineTo(x, y);
-  // context.stroke(paths[userId]);
-  // paths[userId].moveTo(x, y);
-
   userData[userId].context.lineTo(x, y);
   userData[userId].context.stroke();
   userData[userId].context.beginPath();
   userData[userId].context.moveTo(x, y);
-
-  // context.arc(x, y, 10, 0, 2 * Math.PI);
-  // context.fill();
 }
 
 function clamp(val, min, max) {

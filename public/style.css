@@ -62,7 +62,7 @@ html {
 }
 .size-slider--fill {
   height: 100%;
-  width: 50%;
+  width: 25%;
   background-color: #000;
   border-radius: 9999px;
   position: relative;
