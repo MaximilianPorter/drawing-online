@@ -15,7 +15,7 @@ html {
   justify-content: center;
 }
 
-#canvas {
+.canvas {
   height: 500px;
   width: 500px;
   background-color: #fff;

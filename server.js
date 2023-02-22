@@ -23,6 +23,10 @@ io.on("connection", (socket) => {
       socket.to(roomId).emit("new-user-connected", userId);
     });
 
+    socket.on("color-change", (data) => {
+      socket.to(roomId).emit("color-change", data);
+    });
+
     socket.on("mousemove", (data) => {
       socket.to(roomId).emit("mousemove", data);
     });
