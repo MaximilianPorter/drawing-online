@@ -43,16 +43,16 @@ io.on("connection", (socket) => {
     socket.join(roomId);
     rooms.add(roomId);
 
-    socket.on("get-open-rooms", () => {
+    socket.on("get-open-rooms", (userId) => {
       socket.to(roomId).emit("get-open-rooms", [...rooms]);
     });
 
-    // add user to users array in room if it exists, otherwise create room
-    // roomsOpen[roomId]?.users.push(userId) ??
-    //   (roomsOpen[roomId] = { users: [userId] });
+    socket.on("connection-request", (roomId, userId, playerUsername) => {
+      socket.to(roomId).emit("new-user-connected", userId, playerUsername);
+    });
 
-    socket.on("connection-request", () => {
-      socket.to(roomId).emit("new-user-connected", userId);
+    socket.on("send-username", (joiningUserId, sendersUsername) => {
+      socket.to(roomId).emit("send-username", joiningUserId, sendersUsername);
     });
 
     socket.on("color-change", (data) => {

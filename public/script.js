@@ -15,6 +15,8 @@ const sizeSliderFillEl = document.querySelector(".size-slider--fill");
 const saveDrawingBtn = document.querySelector(".save-drawing");
 const usernameDisplayEl = document.querySelector(".username-display");
 
+const lobbyMembersEl = document.querySelector(".lobby-members");
+
 const debugLogRoomsBtn = document.querySelector(".debug-log-rooms");
 
 // these are set later in myPeer open event
@@ -52,39 +54,52 @@ myPeer.on("open", (id) => {
   console.log("Room ID: " + roomId);
 
   if (roomId !== "find") {
-    console.log("creating or joining specific room");
     socket.emit("join-room", roomId, id);
   } else {
-    console.log("joining random room");
     socket.emit("join-random-room", id);
   }
 
-  socket.emit("connection-request", roomId, id);
+  addPlayerToLobbyList(myPeer.id, username);
+  socket.emit("connection-request", roomId, id, username);
 
   socket.on("found-random-room", (roomId) => {
     window.location.pathname = `/room/${roomId}`;
   });
 
-  socket.on("new-user-connected", (userId) => {
+  // listen for other users to start their paths (on host)
+  socket.on("new-user-connected", (userId, playerUsername) => {
     if (userId != myPeer.id) {
-      console.log("New user connected: " + userId);
       peers[userId] = connectToNewUser(userId);
+      addPlayerToLobbyList(userId, playerUsername);
+
+      socket.emit("send-username", userId, username);
 
       userData[userId] = new UserData(createCanvas(userId).getContext("2d"));
     }
   });
 
+  socket.on("send-username", (userId, playerUsername) => {
+    if (userId !== myPeer.id) return;
+
+    addPlayerToLobbyList(userId, playerUsername);
+  });
+
+  // listen for other users to start their paths (on client)
   myPeer.on("connection", (conn) => {
     id = conn.peer;
     if (id === myPeer.id) return;
 
     console.log(`OTHER USER: `, id);
+    // addPlayerToLobbyList(id, username);
     userData[id] = new UserData(createCanvas(id).getContext("2d"));
   });
 
   socket.on("user-disconnected", (userId) => {
     if (peers[userId]) {
-      document.getElementById(userId).remove();
+      document.querySelector(`.canvas[data-user-id='${userId}']`).remove();
+      document
+        .querySelector(`.lobby-member[data-user-id='${userId}']`)
+        .remove();
       peers[userId].close();
     }
   });
@@ -142,7 +157,7 @@ myPeer.on("open", (id) => {
 
 debugLogRoomsBtn.addEventListener("click", () => {
   console.log("request open rooms...");
-  socket.emit("get-open-rooms");
+  socket.emit("get-open-rooms", myPeer.id);
 });
 
 // change color of path to selected color
@@ -207,7 +222,7 @@ saveDrawingBtn.addEventListener("click", () => {
 function createCanvas(userId) {
   const localCanvas = document.createElement("canvas");
   localCanvas.classList.add("canvas");
-  localCanvas.id = userId;
+  localCanvas.dataset.userId = userId;
   if (userId !== myPeer.id) {
     localCanvas.classList.add("pointer-events-none");
   }
@@ -254,6 +269,18 @@ function draw(userId, x, y) {
   userData[userId].context.stroke();
   userData[userId].context.beginPath();
   userData[userId].context.moveTo(x, y);
+}
+
+function addPlayerToLobbyList(userId, playerUsername) {
+  const markup = `
+    <div class="lobby-member" data-user-id="${userId}">
+      <p class="lobby-member--username">${playerUsername}</p>
+      <div class="lobby-member--drawing">
+        <!-- <canvas class="lobby-member--canvas" height="100" width="100"></canvas> -->
+      </div>
+    </div>
+  `;
+  lobbyMembersEl.insertAdjacentHTML("beforeend", markup);
 }
 
 function clamp(val, min, max) {

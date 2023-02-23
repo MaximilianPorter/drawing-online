@@ -12,6 +12,7 @@ const submitCreatePrivateGameBtn = document.querySelector(
 const gameNameInputEl = document.getElementById("game-name");
 const btnCloseGameSettings = document.querySelector(".close-create-game");
 
+localStorage.removeItem("username");
 let username = "";
 
 usernameInputEl.focus();
@@ -42,7 +43,7 @@ submitCreatePrivateGameBtn.addEventListener("click", (e) => {
     drawTime: gameSettingsForm.elements["draw-time"].value,
   };
   console.log(gameSettings);
-  loadLobby();
+  createRoom();
 });
 
 btnCloseGameSettings.addEventListener("click", (e) => {
@@ -56,7 +57,7 @@ function setUsername() {
   gameNameInputEl.value = username + "'s game";
 }
 
-function loadLobby() {
+function createRoom() {
   document.location.href = "/create-random-room";
 }
 
