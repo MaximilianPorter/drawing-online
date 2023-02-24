@@ -39,22 +39,22 @@ io.on("connection", (socket) => {
     socket.emit("found-random-room", roomId);
   });
 
+  socket.on("connection-request", (roomId, userId, playerUsername) => {
+    socket.to(roomId).emit("new-user-connected", userId, playerUsername);
+  });
+
   socket.on("join-room", (roomId, userId) => {
     socket.join(roomId);
     rooms.add(roomId);
 
-    socket.on("get-open-rooms", (userId) => {
+    socket.on("get-open-rooms", () => {
       socket.to(roomId).emit("get-open-rooms", [...rooms]);
     });
 
-    socket.on("connection-request", (roomId, userId, playerUsername) => {
-      socket.to(roomId).emit("new-user-connected", userId, playerUsername);
-    });
-
-    socket.on("send-username", (sendersId, joiningUserId, sendersUsername) => {
+    socket.on("send-user-data", (sendersId, joiningUserId, sendersUsername) => {
       socket
         .to(roomId)
-        .emit("send-username", sendersId, joiningUserId, sendersUsername);
+        .emit("recieve-user-data", sendersId, joiningUserId, sendersUsername);
     });
 
     socket.on("color-change", (data) => {

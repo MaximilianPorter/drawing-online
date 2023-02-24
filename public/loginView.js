@@ -13,7 +13,7 @@ const gameNameInputEl = document.getElementById("game-name");
 const btnCloseGameSettings = document.querySelector(".close-create-game");
 
 localStorage.removeItem("username");
-let username = "";
+let myUsername = "";
 
 usernameInputEl.focus();
 
@@ -52,9 +52,9 @@ btnCloseGameSettings.addEventListener("click", (e) => {
 });
 
 function setUsername() {
-  username = usernameInputEl.value;
-  localStorage.setItem("username", username);
-  gameNameInputEl.value = username + "'s game";
+  myUsername = usernameInputEl.value;
+  localStorage.setItem("username", myUsername);
+  gameNameInputEl.value = myUsername + "'s game";
 }
 
 function createRoom() {

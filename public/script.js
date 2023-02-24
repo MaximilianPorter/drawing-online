@@ -23,10 +23,6 @@ const debugLogRoomsBtn = document.querySelector(".debug-log-rooms");
 
 // these are set later in myPeer open event
 
-// const myPeer = new Peer(undefined, {
-//   host: "/",
-//   port: "3001",
-// });
 const myPeer = new Peer();
 
 // only needed when game starts
@@ -34,8 +30,9 @@ let canvas = createCanvas(null);
 const peers = {};
 const userData = {};
 
-const username = localStorage.getItem("username");
-usernameDisplayEl.textContent = username;
+const myUsername = localStorage.getItem("username");
+usernameDisplayEl.textContent = myUsername;
+
 let painting = false;
 let localBrushSize = 0.25;
 let colorPickerFocused = false;
@@ -46,64 +43,68 @@ let localPlayerReady = false;
 // canvas.height = window.innerHeight;
 
 myPeer.on("open", (id) => {
-  console.log(`Peer ID: ${id}`);
+  console.log(`MY PEER ID: ${id}`);
 
+  // listen for other users to start their paths (on client)
+  myPeer.on("connection", (conn) => {
+    const otherid = conn.peer;
+    if (otherid === myPeer.id) return;
+
+    console.log(`OTHER USER: `, otherid);
+  });
+
+  // create a new user data object for the local user
   userData[myPeer.id] = new UserData(canvas.getContext("2d"));
 
+  // get the room id from the url
   const roomId = window.location.pathname.slice(6);
-  console.log("Room ID: " + roomId);
 
+  // if we're not in the 'find' room, join the room with the id from the url
   if (roomId !== "find") {
     socket.emit("join-room", roomId, id);
   } else {
     socket.emit("join-random-room", id);
   }
+  console.log("Room ID: " + roomId);
 
-  addPlayerToLobbyList(myPeer.id, username);
-  socket.emit("connection-request", roomId, id, username);
+  socket.emit("connection-request", roomId, id, myUsername); // sends to: new-user-connected on everyone already in the room
 
+  // if we find a random room, redirect to that room
   socket.on("found-random-room", (roomId) => {
     window.location.pathname = `/room/${roomId}`;
   });
 
+  // add myself to the lobby list
+  addPlayerToLobbyListUI(myPeer.id, myUsername);
+
   // listen for other users joining the room (when you're already in the room)
   socket.on("new-user-connected", (userId, playerUsername) => {
-    if (userId !== myPeer.id) {
-      // on every user that's already in the room, send the new user's info
-      socket.emit("send-username", userId, myPeer.id, username);
+    if (userId === myPeer.id) return; // ignore the rest if it's us
 
-      // send the new user's info to everyone else
-      peers[userId] = connectToNewUser(userId);
-      addPlayerToLobbyList(userId, playerUsername);
+    // on every user that's already in the room, send the new user's info
+    socket.emit("send-user-data", userId, myPeer.id, myUsername);
 
-      // userData[userId] = new UserData(createCanvas(userId).getContext("2d"));
-    }
+    initializePlayerInLobby(userId, playerUsername);
   });
 
-  socket.on("send-username", (sendersId, joiningUserId, joiningUsername) => {
-    // if we're the user that sent the request, add the joining user to the lobby list
-    if (sendersId === myPeer.id) {
-      console.log(
-        `recieved username: ${joiningUsername} from ${joiningUserId}`
-      );
-      peers[joiningUserId] = connectToNewUser(joiningUserId);
-      addPlayerToLobbyList(joiningUserId, joiningUsername);
+  // recieved from every other user already in the lobby
+  socket.on(
+    "recieve-user-data",
+    (sendersId, existingUserId, existingUsername) => {
+      // if we're the user that sent the request, add the joining user to the lobby list
+      if (sendersId === myPeer.id) {
+        console.log(
+          `recieved username: ${existingUsername} from ${existingUserId}`
+        );
+        initializePlayerInLobby(existingUserId, existingUsername);
+      }
     }
-  });
+  );
 
   socket.on("user-ready", (userId) => {
     if (userId !== myPeer.id) {
       playerReady(userId);
     }
-  });
-
-  // listen for other users to start their paths (on client)
-  myPeer.on("connection", (conn) => {
-    id = conn.peer;
-    if (id === myPeer.id) return;
-
-    console.log(`OTHER USER: `, id);
-    // userData[id] = new UserData(createCanvas(id).getContext("2d"));
   });
 
   socket.on("user-disconnected", (userId) => {
@@ -116,6 +117,114 @@ myPeer.on("open", (id) => {
     }
   });
 
+  // manageSocketDrawingData();
+  socket.on("get-open-rooms", (rooms) => {
+    console.log(`rooms: `, rooms);
+  });
+});
+
+// EVENT LISTENERS----------------------------------------------------------------------------------------
+debugLogRoomsBtn.addEventListener("click", () => {
+  console.log("request open rooms...");
+  socket.emit("get-open-rooms");
+});
+
+// change color of path to selected color
+colorPickerForm.addEventListener("change", () => {
+  userData[myPeer.id].color = colorPickerForm.color.value;
+  socket.emit("color-change", {
+    id: myPeer.id,
+    color: colorPickerForm.color.value,
+  });
+});
+colorPickerInput.addEventListener("focus", () => {
+  colorPickerFocused = true;
+});
+colorPickerInput.addEventListener("blur", () => {
+  colorPickerFocused = false;
+});
+
+// BRUSH SIZE SETTINGS
+let changingBrushSize = false;
+sizeSliderEl.addEventListener("mousedown", () => {
+  changingBrushSize = true;
+});
+document.addEventListener("mousemove", (event) => {
+  if (changingBrushSize) {
+    let percentage01 = clamp(
+      (event.pageX - sizeSliderEl.offsetLeft) /
+        sizeSliderEl.getBoundingClientRect().width,
+      0.01,
+      1
+    );
+    localBrushSize = percentage01;
+    sizeSliderFillEl.style.width = `${percentage01 * 100}%`;
+  }
+});
+document.addEventListener("mouseup", () => {
+  if (changingBrushSize) {
+    changingBrushSize = false;
+    userData[myPeer.id].brushSize = localBrushSize;
+    // socket.emit("brush-size-change", {
+    //   id: myPeer.id,
+    //   brushSize: localBrushSize,
+    // });
+  }
+});
+
+// open canvas content in new window as image when save button is clicked
+saveDrawingBtn.addEventListener("click", () => {
+  const dataUrl = canvas.toDataURL("image/png");
+  const newWindow = window.open();
+  newWindow.document.write(
+    `<img style="display: block;-webkit-user-select: none;margin: auto;background-color: hsl(0, 0%, 90%);transition: background-color 300ms;" src="${dataUrl}">`
+  );
+  newWindow.document.querySelector(
+    "body"
+  ).style = `margin: 0px; background: #0e0e0e; height: 100%;display:flex;align-items:center;justify-content:center;`;
+});
+
+btnReadyUp.addEventListener("click", () => {
+  if (socket) socket.emit("ready-up", myPeer.id);
+  btnReadyUp.classList.add("visually-hidden");
+  playerReady(myPeer.id);
+});
+
+// if color picker form is open, disabled canvas mouse events
+// colorPickerForm.addEventListener("mousedown", () => {
+//   canvas.classList.add("pointer-events-none");
+// });
+
+function initializePlayerInLobby(userId, name) {
+  // add other user to peers object
+  peers[userId] = connectToNewUser(userId);
+
+  // add other user to lobby list
+  addPlayerToLobbyListUI(userId, name);
+}
+
+function manageSocketDrawingData() {
+  // SENDING MOUSE EVENTS---------------------------------------------------------------
+  document.addEventListener("mousedown", startPath);
+  document.addEventListener("mouseup", endPath);
+  canvas.addEventListener("mouseleave", () => {
+    userData[myPeer.id].context.beginPath();
+    socket.emit("end-path", myPeer.id);
+  });
+
+  canvas.addEventListener("mousemove", (event) => {
+    if (!painting || colorPickerFocused) return;
+    const x = event.clientX - canvas.offsetLeft;
+    const y = event.clientY - canvas.offsetTop;
+
+    // Draw a red circle at the current mouse position
+    draw(myPeer.id, x, y);
+
+    // Send the mouse position to other clients in the same room
+    socket.emit("draw", { id: myPeer.id, x, y });
+  });
+
+  // RECIEVING MOUSE EVENTS---------------------------------------------------------------
   // listen for other users to start their paths
   socket.on("draw", (data) => {
     if (data.id !== myPeer.id) {
@@ -142,100 +251,7 @@ myPeer.on("open", (id) => {
       userData[data.id].brushSize = data.brushSize;
     }
   });
-
-  socket.on("get-open-rooms", (rooms) => {
-    console.log(`rooms: `, rooms);
-  });
-
-  document.addEventListener("mousedown", startPath);
-  document.addEventListener("mouseup", endPath);
-  canvas.addEventListener("mouseleave", () => {
-    userData[myPeer.id].context.beginPath();
-    socket.emit("end-path", myPeer.id);
-  });
-
-  canvas.addEventListener("mousemove", (event) => {
-    if (!painting || colorPickerFocused) return;
-    const x = event.clientX - canvas.offsetLeft;
-    const y = event.clientY - canvas.offsetTop;
-
-    // Draw a red circle at the current mouse position
-    draw(myPeer.id, x, y);
-
-    // Send the mouse position to other clients in the same room
-    socket.emit("draw", { id: myPeer.id, x, y });
-  });
-});
-
-debugLogRoomsBtn.addEventListener("click", () => {
-  console.log("request open rooms...");
-  socket.emit("get-open-rooms", myPeer.id);
-});
-
-// change color of path to selected color
-colorPickerForm.addEventListener("change", () => {
-  userData[myPeer.id].color = colorPickerForm.color.value;
-  socket.emit("color-change", {
-    id: myPeer.id,
-    color: colorPickerForm.color.value,
-  });
-});
-colorPickerInput.addEventListener("focus", () => {
-  colorPickerFocused = true;
-});
-colorPickerInput.addEventListener("blur", () => {
-  colorPickerFocused = false;
-});
-
-let changingBrushSize = false;
-sizeSliderEl.addEventListener("mousedown", () => {
-  changingBrushSize = true;
-});
-document.addEventListener("mousemove", (event) => {
-  if (changingBrushSize) {
-    let percentage01 = clamp(
-      (event.pageX - sizeSliderEl.offsetLeft) /
-        sizeSliderEl.getBoundingClientRect().width,
-      0.01,
-      1
-    );
-    localBrushSize = percentage01;
-    sizeSliderFillEl.style.width = `${percentage01 * 100}%`;
-  }
-});
-document.addEventListener("mouseup", () => {
-  if (changingBrushSize) {
-    changingBrushSize = false;
-    userData[myPeer.id].brushSize = localBrushSize;
-    socket.emit("brush-size-change", {
-      id: myPeer.id,
-      brushSize: localBrushSize,
-    });
-  }
-});
-
-// open canvas content in new window as image when save button is clicked
-saveDrawingBtn.addEventListener("click", () => {
-  const dataUrl = canvas.toDataURL("image/png");
-  const newWindow = window.open();
-  newWindow.document.write(
-    `<img style="display: block;-webkit-user-select: none;margin: auto;background-color: hsl(0, 0%, 90%);transition: background-color 300ms;" src="${dataUrl}">`
-  );
-  newWindow.document.querySelector(
-    "body"
-  ).style = `margin: 0px; background: #0e0e0e; height: 100%;display:flex;align-items:center;justify-content:center;`;
-});
-
-btnReadyUp.addEventListener("click", () => {
-  if (socket) socket.emit("ready-up", myPeer.id);
-  btnReadyUp.classList.add("visually-hidden");
-  playerReady(myPeer.id);
-});
-
-// if color picker form is open, disabled canvas mouse events
-// colorPickerForm.addEventListener("mousedown", () => {
-//   canvas.classList.add("pointer-events-none");
-// });
+}
 
 function createCanvas(userId) {
   const localCanvas = document.createElement("canvas");
@@ -289,7 +305,7 @@ function draw(userId, x, y) {
   userData[userId].context.moveTo(x, y);
 }
 
-function addPlayerToLobbyList(userId, playerUsername) {
+function addPlayerToLobbyListUI(userId, playerUsername) {
   const markup = `
     <div class="lobby-member" data-user-id="${userId}">
       <p class="lobby-member--username">${playerUsername}</p>
@@ -306,6 +322,8 @@ function playerReady(userId) {
     `.lobby-member[data-user-id="${userId}"]`
   );
   playerEl.classList.add("user-ready");
+
+  localPlayerReady = true;
 }
 function allPlayersReady() {
   sectionLobby.classList.remove("section-lobby-not-ready");
