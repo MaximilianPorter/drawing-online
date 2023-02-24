@@ -51,8 +51,10 @@ io.on("connection", (socket) => {
       socket.to(roomId).emit("new-user-connected", userId, playerUsername);
     });
 
-    socket.on("send-username", (joiningUserId, sendersUsername) => {
-      socket.to(roomId).emit("send-username", joiningUserId, sendersUsername);
+    socket.on("send-username", (sendersId, joiningUserId, sendersUsername) => {
+      socket
+        .to(roomId)
+        .emit("send-username", sendersId, joiningUserId, sendersUsername);
     });
 
     socket.on("color-change", (data) => {
@@ -69,6 +71,10 @@ io.on("connection", (socket) => {
 
     socket.on("end-path", (data) => {
       socket.to(roomId).emit("end-path", data);
+    });
+
+    socket.on("ready-up", (userId) => {
+      socket.to(roomId).emit("user-ready", userId);
     });
 
     socket.on("disconnect", () => {

@@ -19,33 +19,29 @@
     <button type="button" class="save-drawing">Save</button>
     <p class="username-display">username</p>
     <button type="button" class="debug-log-rooms">Log Rooms</button>
-    <div class="section-lobby">
+    <div class="section-lobby section-lobby-not-ready">
       <p class="players-in-lobby">Players</p>
-      <div class="lobby-members">
-        <!-- <div class="lobby-member">
+      <div class="lobby-members lobby-members-not-ready">
+        <div class="lobby-member user-ready">
           <p class="lobby-member--username">username</p>
-          <div class="lobby-member--drawing">
-          </div>
+          <div class="lobby-member--drawing"></div>
         </div>
         <div class="lobby-member">
           <p class="lobby-member--username">username</p>
-          <div class="lobby-member--drawing">
-          </div>
+          <div class="lobby-member--drawing"></div>
         </div>
         <div class="lobby-member">
           <p class="lobby-member--username">username</p>
-          <div class="lobby-member--drawing">
-          </div>
+          <div class="lobby-member--drawing"></div>
         </div>
         <div class="lobby-member">
           <p class="lobby-member--username">username</p>
-          <div class="lobby-member--drawing">
-          </div>
-        </div> -->
+          <div class="lobby-member--drawing"></div>
+        </div>
       </div>
     </div>
     <div class="page-container">
-      <div class="draw-space">
+      <div class="draw-space visually-hidden">
         <form class="color-picker-form">
           <!-- <input
           type="radio"
@@ -102,5 +98,6 @@
         </div>
       </div>
     </div>
+    <button type="button" title="ready-up" class="btn-ready-up">READY</button>
   </body>
 </html>

@@ -15,7 +15,9 @@ const sizeSliderFillEl = document.querySelector(".size-slider--fill");
 const saveDrawingBtn = document.querySelector(".save-drawing");
 const usernameDisplayEl = document.querySelector(".username-display");
 
+const sectionLobby = document.querySelector(".section-lobby");
 const lobbyMembersEl = document.querySelector(".lobby-members");
+const btnReadyUp = document.querySelector(".btn-ready-up");
 
 const debugLogRoomsBtn = document.querySelector(".debug-log-rooms");
 
@@ -27,7 +29,8 @@ const debugLogRoomsBtn = document.querySelector(".debug-log-rooms");
 // });
 const myPeer = new Peer();
 
-let canvas = createCanvas(myPeer.id);
+// only needed when game starts
+let canvas = createCanvas(null);
 const peers = {};
 const userData = {};
 
@@ -36,6 +39,7 @@ usernameDisplayEl.textContent = username;
 let painting = false;
 let localBrushSize = 0.25;
 let colorPickerFocused = false;
+let localPlayerReady = false;
 
 // Set the canvas dimensions to match the window size
 // canvas.width = window.innerWidth;
@@ -45,11 +49,6 @@ myPeer.on("open", (id) => {
   console.log(`Peer ID: ${id}`);
 
   userData[myPeer.id] = new UserData(canvas.getContext("2d"));
-
-  // Redirect to a random room ID if none is specified in the URL
-  // if (!window.location.pathname.slice(6)) {
-  //   window.location.pathname = `/${Math.random().toString(36).substring(2, 8)}`;
-  // }
 
   const roomId = window.location.pathname.slice(6);
   console.log("Room ID: " + roomId);
@@ -67,22 +66,35 @@ myPeer.on("open", (id) => {
     window.location.pathname = `/room/${roomId}`;
   });
 
-  // listen for other users to start their paths (on host)
+  // listen for other users joining the room (when you're already in the room)
   socket.on("new-user-connected", (userId, playerUsername) => {
-    if (userId != myPeer.id) {
+    if (userId !== myPeer.id) {
+      // on every user that's already in the room, send the new user's info
+      socket.emit("send-username", userId, myPeer.id, username);
+
+      // send the new user's info to everyone else
       peers[userId] = connectToNewUser(userId);
       addPlayerToLobbyList(userId, playerUsername);
 
-      socket.emit("send-username", userId, username);
-
-      userData[userId] = new UserData(createCanvas(userId).getContext("2d"));
+      // userData[userId] = new UserData(createCanvas(userId).getContext("2d"));
     }
   });
 
-  socket.on("send-username", (userId, playerUsername) => {
-    if (userId !== myPeer.id) return;
+  socket.on("send-username", (sendersId, joiningUserId, joiningUsername) => {
+    // if we're the user that sent the request, add the joining user to the lobby list
+    if (sendersId === myPeer.id) {
+      console.log(
+        `recieved username: ${joiningUsername} from ${joiningUserId}`
+      );
+      peers[joiningUserId] = connectToNewUser(joiningUserId);
+      addPlayerToLobbyList(joiningUserId, joiningUsername);
+    }
+  });
 
-    addPlayerToLobbyList(userId, playerUsername);
+  socket.on("user-ready", (userId) => {
+    if (userId !== myPeer.id) {
+      playerReady(userId);
+    }
   });
 
   // listen for other users to start their paths (on client)
@@ -91,13 +103,12 @@ myPeer.on("open", (id) => {
     if (id === myPeer.id) return;
 
     console.log(`OTHER USER: `, id);
-    // addPlayerToLobbyList(id, username);
-    userData[id] = new UserData(createCanvas(id).getContext("2d"));
+    // userData[id] = new UserData(createCanvas(id).getContext("2d"));
   });
 
   socket.on("user-disconnected", (userId) => {
     if (peers[userId]) {
-      document.querySelector(`.canvas[data-user-id='${userId}']`).remove();
+      // document.querySelector(`.canvas[data-user-id='${userId}']`).remove();
       document
         .querySelector(`.lobby-member[data-user-id='${userId}']`)
         .remove();
@@ -215,6 +226,12 @@ saveDrawingBtn.addEventListener("click", () => {
   ).style = `margin: 0px; background: #0e0e0e; height: 100%;display:flex;align-items:center;justify-content:center;`;
 });
 
+btnReadyUp.addEventListener("click", () => {
+  if (socket) socket.emit("ready-up", myPeer.id);
+  btnReadyUp.classList.add("visually-hidden");
+  playerReady(myPeer.id);
+});
+
 // if color picker form is open, disabled canvas mouse events
 // colorPickerForm.addEventListener("mousedown", () => {
 //   canvas.classList.add("pointer-events-none");
@@ -282,6 +299,17 @@ function addPlayerToLobbyList(userId, playerUsername) {
     </div>
   `;
   lobbyMembersEl.insertAdjacentHTML("beforeend", markup);
+}
+
+function playerReady(userId) {
+  const playerEl = document.querySelector(
+    `.lobby-member[data-user-id="${userId}"]`
+  );
+  playerEl.classList.add("user-ready");
+}
+function allPlayersReady() {
+  sectionLobby.classList.remove("section-lobby-not-ready");
+  lobbyMembersEl.classList.remove("lobby-members-not-ready");
 }
 
 function clamp(val, min, max) {
