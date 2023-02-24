@@ -21,10 +21,11 @@ const debugLogRoomsBtn = document.querySelector(".debug-log-rooms");
 
 // these are set later in myPeer open event
 
-const myPeer = new Peer(undefined, {
-  host: "/",
-  port: "3001",
-});
+// const myPeer = new Peer(undefined, {
+//   host: "/",
+//   port: "3001",
+// });
+const myPeer = new Peer();
 
 let canvas = createCanvas(myPeer.id);
 const peers = {};
