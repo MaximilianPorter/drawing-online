@@ -65,6 +65,12 @@ myPeer.on("open", (id) => {
     window.location.pathname = `/room/${roomId}`;
   });
 
+  // listen for a room full response
+  socket.on("room-full", () => {
+    localStorage.setItem("roomError", "Room is full");
+    window.location.pathname = "/";
+  });
+
   // if we're not in the 'find' room, join the room with the id from the url
   if (roomId !== "find") {
     socket.emit("join-room", roomId, id);
@@ -83,12 +89,6 @@ myPeer.on("open", (id) => {
     JSON.parse(localStorage.getItem("gameSettings"))
   );
 
-  // listen for a room full response
-  socket.on("room-full", () => {
-    localStorage.setItem("roomError", "Room is full");
-    window.location.pathname = "/";
-  });
-
   // add myself to the lobby list
   addPlayerToLobbyListUI(myPeer.id, myUsername);
 
@@ -96,25 +96,23 @@ myPeer.on("open", (id) => {
   socket.on("new-user-connected", (userId, playerUsername) => {
     if (userId === myPeer.id) return; // ignore the rest if it's us
 
-    // on every user that's already in the room, send the new user's info
-    socket.emit("send-user-data", userId, myPeer.id, myUsername);
-
-    initializePlayerInLobby(userId, playerUsername);
+    initializePlayerInLobby({
+      userId,
+      username: playerUsername,
+      isReady: false,
+    });
   });
 
-  // recieved from every other user already in the lobby
-  socket.on(
-    "recieve-user-data",
-    (sendersId, existingUserId, existingUsername) => {
-      // if we're the user that sent the request, add the joining user to the lobby list
-      if (sendersId === myPeer.id) {
-        console.log(
-          `recieved username: ${existingUsername} from ${existingUserId}`
-        );
-        initializePlayerInLobby(existingUserId, existingUsername);
+  // when you join the lobby, initialize every user that's already in the room
+  socket.emit("get-users-in-room");
+  socket.on("get-users-in-room", (users) => {
+    console.log(`users in room: `, users);
+    users.forEach((user) => {
+      if (user.userId !== myPeer.id) {
+        initializePlayerInLobby(user);
       }
-    }
-  );
+    });
+  });
 
   socket.emit("get-game-settings");
   socket.on("get-game-settings", (gameSettings) => {
@@ -125,7 +123,7 @@ myPeer.on("open", (id) => {
   // recieved from the server when a user is ready
   socket.on("user-ready", (userId) => {
     if (userId !== myPeer.id) {
-      playerReady(userId);
+      togglePlayerReady(userId, true);
     }
   });
 
@@ -214,7 +212,7 @@ saveDrawingBtn.addEventListener("click", () => {
 btnReadyUp.addEventListener("click", () => {
   if (socket) socket.emit("ready-up", myPeer.id);
   btnReadyUp.classList.add("visually-hidden");
-  playerReady(myPeer.id);
+  togglePlayerReady(myPeer.id, true);
 });
 
 // if color picker form is open, disabled canvas mouse events
@@ -222,12 +220,16 @@ btnReadyUp.addEventListener("click", () => {
 //   canvas.classList.add("pointer-events-none");
 // });
 
-function initializePlayerInLobby(userId, name) {
+function initializePlayerInLobby(userData) {
+  console.log("user data received: ", userData);
   // add other user to peers object
-  peers[userId] = connectToNewUser(userId);
+  peers[userData.userId] = connectToNewUser(userData.userId);
 
   // add other user to lobby list
-  addPlayerToLobbyListUI(userId, name);
+  addPlayerToLobbyListUI(userData.userId, userData.username);
+
+  // if other user is ready, set them as ready
+  togglePlayerReady(userData.userId, userData.isReady);
 }
 
 function startGame() {
@@ -353,13 +355,13 @@ function addPlayerToLobbyListUI(userId, playerUsername) {
   lobbyMembersEl.insertAdjacentHTML("beforeend", markup);
 }
 
-function playerReady(userId) {
+function togglePlayerReady(userId, isReady = true) {
   const playerEl = document.querySelector(
     `.lobby-member[data-user-id="${userId}"]`
   );
-  playerEl.classList.add("user-ready");
+  playerEl.classList.toggle("user-ready", isReady);
 
-  localPlayerReady = true;
+  localPlayerReady = isReady;
 }
 function allPlayersReady() {
   sectionLobby.classList.remove("section-lobby-not-ready");

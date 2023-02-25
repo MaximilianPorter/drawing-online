@@ -24,8 +24,8 @@ class UserData {
   constructor(userId, username) {
     this.userId = userId;
     this.username = username;
+    this.isReady = false;
   }
-  isReady = false;
 }
 
 const defaultGameSettings = {
@@ -39,11 +39,15 @@ io.on("connection", (socket) => {
   socket.on("join-random-room", (userId) => {
     let foundRoomId = null;
     for (const [roomId, roomData] of rooms) {
+      // get active clients in room (including me)
       const socketRoom = io.sockets.adapter.rooms.get(roomId);
       const numClients = socketRoom ? socketRoom.size : 0;
+
+      // if room is not full, join it
       if (
         numClients > 0 &&
-        numClients < (roomData?.settings.maxPlayers ?? 1000)
+        numClients <
+          (roomData?.settings.maxPlayers ?? defaultGameSettings.maxPlayers)
       ) {
         foundRoomId = roomId;
         break;
@@ -68,7 +72,10 @@ io.on("connection", (socket) => {
       const socketRoom = io.sockets.adapter.rooms.get(roomId);
       const numClients = socketRoom ? socketRoom.size : 0;
       // this is checking after the user has already joined the room
-      if (numClients > (gameSettings?.maxPlayers ?? 20)) {
+      if (
+        numClients >
+        (gameSettings?.maxPlayers ?? defaultGameSettings.maxPlayers)
+      ) {
         socket.emit("room-full");
         return;
       }
@@ -90,6 +97,10 @@ io.on("connection", (socket) => {
   socket.on("join-room", (roomId, userId) => {
     socket.join(roomId);
 
+    socket.on("get-users-in-room", () => {
+      socket.emit("get-users-in-room", rooms.get(roomId).users);
+    });
+
     socket.on("get-open-rooms", () => {
       socket.emit("get-open-rooms", [...rooms]);
     });
@@ -97,20 +108,6 @@ io.on("connection", (socket) => {
     socket.on("get-game-settings", () => {
       socket.emit("get-game-settings", rooms.get(roomId).settings);
     });
-
-    socket.on(
-      "send-user-data",
-      (newUsersId, existingUsersId, existingUsername) => {
-        socket
-          .to(roomId)
-          .emit(
-            "recieve-user-data",
-            newUsersId,
-            existingUsersId,
-            existingUsername
-          );
-      }
-    );
 
     socket.on("color-change", (data) => {
       socket.to(roomId).emit("color-change", data);
