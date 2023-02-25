@@ -129,7 +129,7 @@ body {
   right: 50%;
   transform: translate(50%, 0);
 }
-.players-in-lobby {
+.players-header {
   font-size: 1.6rem;
   font-weight: 700;
   text-align: center;
@@ -190,4 +190,10 @@ body {
 }
 .btn-ready-up:hover {
   background-color: var(--primary-light);
+}
+
+.loading-img {
+  opacity: 0.5;
+  grid-column: 1 / -1;
+  margin: auto;
 }

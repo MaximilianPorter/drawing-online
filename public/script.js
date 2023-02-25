@@ -16,6 +16,7 @@ const saveDrawingBtn = document.querySelector(".save-drawing");
 const usernameDisplayEl = document.querySelector(".username-display");
 
 const sectionLobby = document.querySelector(".section-lobby");
+const playersHeaderEl = document.querySelector(".players-header");
 const lobbyMembersEl = document.querySelector(".lobby-members");
 const btnReadyUp = document.querySelector(".btn-ready-up");
 
@@ -59,19 +60,33 @@ myPeer.on("open", (id) => {
   // get the room id from the url
   const roomId = window.location.pathname.slice(6);
 
+  // if we find a random room, redirect to that room
+  socket.on("found-random-room", (roomId) => {
+    window.location.pathname = `/room/${roomId}`;
+  });
+
   // if we're not in the 'find' room, join the room with the id from the url
   if (roomId !== "find") {
     socket.emit("join-room", roomId, id);
   } else {
     socket.emit("join-random-room", id);
+    return;
   }
   console.log("Room ID: " + roomId);
 
-  socket.emit("connection-request", roomId, id, myUsername); // sends to: new-user-connected on everyone already in the room
+  // sends to: new-user-connected on everyone already in the room
+  socket.emit(
+    "connection-request",
+    roomId,
+    id,
+    myUsername,
+    JSON.parse(localStorage.getItem("gameSettings"))
+  );
 
-  // if we find a random room, redirect to that room
-  socket.on("found-random-room", (roomId) => {
-    window.location.pathname = `/room/${roomId}`;
+  // listen for a room full response
+  socket.on("room-full", () => {
+    localStorage.setItem("roomError", "Room is full");
+    window.location.pathname = "/";
   });
 
   // add myself to the lobby list
@@ -101,10 +116,22 @@ myPeer.on("open", (id) => {
     }
   );
 
+  socket.emit("get-game-settings");
+  socket.on("get-game-settings", (gameSettings) => {
+    playersHeaderEl.textContent = `${gameSettings.name}`;
+    console.log(`game settings: `, gameSettings);
+  });
+
+  // recieved from the server when a user is ready
   socket.on("user-ready", (userId) => {
     if (userId !== myPeer.id) {
       playerReady(userId);
     }
+  });
+
+  socket.on("all-users-ready", () => {
+    console.log("all users ready");
+    startGame();
   });
 
   socket.on("user-disconnected", (userId) => {
@@ -201,6 +228,10 @@ function initializePlayerInLobby(userId, name) {
 
   // add other user to lobby list
   addPlayerToLobbyListUI(userId, name);
+}
+
+function startGame() {
+  console.log("game starting");
 }
 
 function manageSocketDrawingData() {
@@ -306,6 +337,11 @@ function draw(userId, x, y) {
 }
 
 function addPlayerToLobbyListUI(userId, playerUsername) {
+  // if it's the first time adding a player to the lobby list, remove the loading message
+  if (!lobbyMembersEl.querySelector(".lobby-member")) {
+    lobbyMembersEl.innerHTML = "";
+  }
+
   const markup = `
     <div class="lobby-member" data-user-id="${userId}">
       <p class="lobby-member--username">${playerUsername}</p>

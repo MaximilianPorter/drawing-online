@@ -10,6 +10,12 @@
       src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"
     ></script>
     <script defer src="/socket.io/socket.io.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="/general.css" />
     <link rel="stylesheet" href="/drawingStyle.css" />
     <script type="module" src="/script.js"></script>
@@ -20,9 +26,15 @@
     <p class="username-display">username</p>
     <button type="button" class="debug-log-rooms">Log Rooms</button>
     <div class="section-lobby section-lobby-not-ready">
-      <p class="players-in-lobby">Players</p>
+      <p class="players-header">Players</p>
       <div class="lobby-members lobby-members-not-ready">
-        <div class="lobby-member user-ready">
+        <img
+          class="loading-img"
+          src="../imgs/loadingGif.gif"
+          alt="loading image"
+          srcset=""
+        />
+        <!-- <div class="lobby-member user-ready">
           <p class="lobby-member--username">username</p>
           <div class="lobby-member--drawing"></div>
         </div>
@@ -37,7 +49,7 @@
         <div class="lobby-member">
           <p class="lobby-member--username">username</p>
           <div class="lobby-member--drawing"></div>
-        </div>
+        </div> -->
       </div>
     </div>
     <div class="page-container">

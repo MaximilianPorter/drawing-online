@@ -3,6 +3,7 @@ body {
 }
 
 .submit-name-form {
+  font-family: inherit;
   height: 100vh;
 
   display: flex;
@@ -15,6 +16,7 @@ body {
 }
 
 #username-input {
+  font-family: inherit;
   width: 40rem;
 
   font-size: 3rem;
@@ -40,6 +42,7 @@ body {
 }
 
 .btn {
+  font-family: inherit;
   cursor: pointer;
   padding: 1.5rem 3rem;
   border-radius: 9999px;
@@ -110,6 +113,7 @@ body {
 }
 
 .game-settings-form {
+  font-family: inherit;
   display: flex;
   flex-direction: column;
   /* align-items: center; */
@@ -134,6 +138,7 @@ body {
 }
 
 .game-settings-item__input {
+  font-family: inherit;
   border-radius: 9999px;
   border: transparent;
   outline: transparent;
@@ -142,23 +147,40 @@ body {
   font-size: 2.4rem;
 }
 
-.submit-create-game {
-  cursor: pointer;
-  padding: 1.5rem 3rem;
-  border-radius: 9999px;
-  border: transparent;
+.btn--submit-create-game {
   background-color: var(--gray);
-  color: var(--white);
-
   margin-top: auto;
-
-  text-transform: uppercase;
-  font-size: 1.6rem;
-  font-weight: 700;
-  transition: all 0.3s ease;
 }
-.submit-create-game:hover {
+.btn--submit-create-game:hover,
+.btn--submit-create-game:focus-visible {
   background-color: var(--primary-light);
+  transform: scale(1);
 
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.room-error {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  height: 5rem;
+  width: 100%;
+  background-color: red;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  transition: all 0.3s ease;
+}
+.room-error--message {
+  color: white;
+  font-size: 2rem;
+  font-weight: 700;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.error-hidden {
+  transform: translateY(-100%);
 }
