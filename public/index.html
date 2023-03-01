@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="gameSettings.js"></script>
     <script type="module" src="loginView.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -47,7 +48,7 @@
             placeholder="game name"
           />
         </div>
-        <div class="section-game-settings__item">
+        <!-- <div class="section-game-settings__item">
           <label for="game-password">Password:</label>
           <input
             type="password"
@@ -57,7 +58,7 @@
             value=""
             placeholder="password"
           />
-        </div>
+        </div> -->
         <div class="section-game-settings__item">
           <label for="draw-time">Draw time:</label>
           <input
@@ -71,6 +72,21 @@
             value="60"
           />
         </div>
+
+        <div class="section-game-settings__item">
+          <label for="voting-time">Voting time:</label>
+          <input
+            type="number"
+            name="voting-time"
+            id="voting-time"
+            class="game-settings-item__input"
+            min="30"
+            max="300"
+            step="10"
+            value="60"
+          />
+        </div>
+
         <div class="section-game-settings__item">
           <label for="max-players">Max players:</label>
           <input

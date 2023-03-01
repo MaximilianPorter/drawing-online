@@ -7,10 +7,12 @@
     "peer": "^0.6.1",
     "peerjs": "^1.4.7",
     "socket.io": "^4.6.1",
-    "uuid": "^9.0.0"
+    "uuid": "^9.0.0",
+    "word-pictionary-list": "^1.0.0"
   },
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "devstart": "nodemon server.js"
   },
   "name": "peer-mouse-pos",
   "version": "1.0.0",

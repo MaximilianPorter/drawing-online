@@ -1,8 +1,14 @@
+// run nodemon server.js
+// and peerjs --port 3001
+
+const GameSettings = require("./public/gameSettings.js");
+
 const express = require("express");
 const app = express();
 const server = require("http").Server(app);
 const io = require("socket.io")(server);
 const { v4: uuidV4 } = require("uuid");
+const words = require("./fullWordList.json");
 
 const rooms = new Map();
 
@@ -28,12 +34,7 @@ class UserData {
   }
 }
 
-const defaultGameSettings = {
-  name: "Random Game",
-  password: "",
-  maxPlayers: 20,
-  drawTime: 60,
-};
+const defaultGameSettings = new GameSettings();
 
 io.on("connection", (socket) => {
   socket.on("join-random-room", (userId) => {
@@ -47,7 +48,9 @@ io.on("connection", (socket) => {
       if (
         numClients > 0 &&
         numClients <
-          (roomData?.settings.maxPlayers ?? defaultGameSettings.maxPlayers)
+          (roomData.settings.maxPlayers ?? defaultGameSettings.maxPlayers) &&
+        roomData.settings.privateRoom === false &&
+        roomData.settings.gameStarted === false
       ) {
         foundRoomId = roomId;
         break;
@@ -71,12 +74,13 @@ io.on("connection", (socket) => {
       // don't join if room is full
       const socketRoom = io.sockets.adapter.rooms.get(roomId);
       const numClients = socketRoom ? socketRoom.size : 0;
+
       // this is checking after the user has already joined the room
-      if (
-        numClients >
-        (gameSettings?.maxPlayers ?? defaultGameSettings.maxPlayers)
-      ) {
-        socket.emit("room-full");
+      if (numClients > gameSettings.maxPlayers) {
+        socket.emit("room-error", "Room is full");
+        return;
+      } else if (gameSettings.gameStarted) {
+        socket.emit("room-error", "Game has already started");
         return;
       }
 
@@ -89,7 +93,7 @@ io.on("connection", (socket) => {
         settings: { ...gameSettings },
         users: [userData],
       };
-      if (!rooms.has(roomId)) rooms.set(roomId, roomData);
+      if (!rooms.has(roomId) && roomId !== "find") rooms.set(roomId, roomData);
       else rooms.get(roomId).users.push(userData);
     }
   );
@@ -121,6 +125,11 @@ io.on("connection", (socket) => {
       socket.to(roomId).emit("draw", data);
     });
 
+    socket.on("drawing-data", (userId, drawingURL) => {
+      socket.to(roomId).emit("drawing-data", userId, drawingURL);
+      // socket.to(roomId).emit('drawing-data', data)
+    });
+
     socket.on("end-path", (data) => {
       socket.to(roomId).emit("end-path", data);
     });
@@ -134,8 +143,10 @@ io.on("connection", (socket) => {
         .get(roomId)
         .users.every((user) => user.isReady);
       if (allUsersReady) {
+        rooms.get(roomId).settings.gameStarted = true;
+
         // send the event to everyone in the room
-        io.in(roomId).emit("all-users-ready");
+        startGameCountdown(roomId);
       }
     });
 
@@ -147,6 +158,64 @@ io.on("connection", (socket) => {
   });
 });
 
+function startGameCountdown(roomId) {
+  const roomData = rooms.get(roomId);
+  const gameSettings = roomData.settings;
+
+  // start game countdown
+  let countdown = gameSettings.countdownTime;
+  const gameCountdownInterval = setInterval(() => {
+    if (countdown <= 0) {
+      startDrawCountdown(roomId, gameSettings.drawTime);
+      io.in(roomId).emit("start-game", randomWord());
+      clearInterval(gameCountdownInterval);
+      return;
+    }
+
+    countdown--;
+    io.in(roomId).emit("countdown", countdown);
+  }, 1000);
+}
+
+function startDrawCountdown(roomId, countdownTime) {
+  rooms.get(roomId).settings.gamePhase = "drawing";
+  let countdown = countdownTime;
+  const drawCountdownInterval = setInterval(() => {
+    if (countdown <= 0) {
+      endDrawingPhase(roomId);
+      clearInterval(drawCountdownInterval);
+      return;
+    }
+
+    countdown--;
+    io.in(roomId).emit("draw-countdown", countdown);
+  }, 1000);
+}
+
+function endDrawingPhase(roomId) {
+  io.in(roomId).emit("end-drawing-phase");
+  startVotingCountdown(roomId, rooms.get(roomId).settings.votingTime);
+}
+
+function startVotingCountdown(roomId, countdownTime) {
+  rooms.get(roomId).settings.gamePhase = "voting";
+
+  let countdown = countdownTime;
+  const votingCountdownInterval = setInterval(() => {
+    if (countdown <= 0) {
+      endVotingPhase(roomId);
+      clearInterval(votingCountdownInterval);
+      return;
+    }
+
+    countdown--;
+    io.in(roomId).emit("voting-countdown", countdown);
+  }, 1000);
+}
+function endVotingPhase(roomId) {
+  io.in(roomId).emit("end-voting-phase");
+}
+
 function getUserInRoom(roomId, userId) {
   return rooms.get(roomId)?.users.find((user) => user.userId === userId);
 }
@@ -157,6 +226,12 @@ function removeUserFromRoom(roomId, userId) {
   rooms.get(roomId).users = rooms
     .get(roomId)
     ?.users.filter((user) => user.userId !== userId);
+}
+
+function checkRoomAvailable(roomId, roomData) {}
+
+function randomWord() {
+  return words[Math.floor(Math.random() * words.length)];
 }
 
 let port = process.env.PORT;

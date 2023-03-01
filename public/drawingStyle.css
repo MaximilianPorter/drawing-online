@@ -18,6 +18,25 @@ body {
   flex: 1;
 }
 
+.word-to-draw {
+  font-size: 3rem;
+  font-weight: 700;
+  color: var(--white);
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.in-game-countdown {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  font-size: 4rem;
+  font-weight: 700;
+  color: var(--white);
+  text-align: center;
+  text-transform: uppercase;
+}
+
 .canvas {
   height: 500px;
   width: 500px;
@@ -196,4 +215,32 @@ body {
   opacity: 0.5;
   grid-column: 1 / -1;
   margin: auto;
+}
+
+.countdown {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 10rem;
+  font-weight: 700;
+  -webkit-text-stroke: 0.2rem var(--primary-light);
+  paint-order: stroke fill;
+  color: var(--primary);
+  filter: drop-shadow(0 0 15px rgba(0, 0, 0, 0.5));
+}
+
+.room-drawings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  justify-items: center;
+  justify-content: center;
+  gap: 1rem;
+  width: 80vw;
+  margin: 0 auto;
+}
+
+.room-img {
+  border-radius: 20px;
+  width: 100%;
 }

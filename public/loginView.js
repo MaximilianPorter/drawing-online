@@ -1,3 +1,5 @@
+const GameSettings = window.GameSettings;
+
 const usernameForm = document.querySelector(".submit-name-form");
 const usernameInputEl = document.getElementById("username-input");
 const createPrivateGameBtn = document.querySelector(
@@ -46,12 +48,13 @@ gameSettingsSection.addEventListener("mousedown", (e) => {
 
 submitCreatePrivateGameBtn.addEventListener("click", (e) => {
   e.preventDefault();
-  const gameSettings = {
-    name: gameSettingsForm.elements["game-name"]?.value,
-    password: gameSettingsForm.elements["game-password"]?.value,
-    maxPlayers: gameSettingsForm.elements["max-players"].value,
-    drawTime: gameSettingsForm.elements["draw-time"].value,
-  };
+  const gameSettings = new GameSettings(
+    true,
+    gameSettingsForm.elements["game-name"]?.value,
+    +gameSettingsForm.elements["max-players"].value,
+    +gameSettingsForm.elements["draw-time"].value,
+    +gameSettingsForm.elements["voting-time"].value
+  );
   createRoom(gameSettings);
 });
 

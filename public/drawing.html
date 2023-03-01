@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="/gameSettings.js"></script>
 
     <script
       defer
@@ -22,9 +23,9 @@
     <title>Mouse Stuff</title>
   </head>
   <body>
-    <button type="button" class="save-drawing">Save</button>
+    <!-- <button type="button" class="save-drawing">Save</button>
     <p class="username-display">username</p>
-    <button type="button" class="debug-log-rooms">Log Rooms</button>
+    <button type="button" class="debug-log-rooms">Log Rooms</button> -->
     <div class="section-lobby section-lobby-not-ready">
       <p class="players-header">Players</p>
       <div class="lobby-members lobby-members-not-ready">
@@ -52,8 +53,11 @@
         </div> -->
       </div>
     </div>
+    <p class="countdown visually-hidden">10</p>
+    <p class="in-game-countdown visually-hidden">60</p>
     <div class="page-container">
       <div class="draw-space visually-hidden">
+        <p class="word-to-draw">Word To Draw</p>
         <form class="color-picker-form">
           <!-- <input
           type="radio"
@@ -108,6 +112,10 @@
         <div class="canvas-container">
           <!-- <canvas class="canvas" height="500" width="500"></canvas> -->
         </div>
+      </div>
+
+      <div class="room-drawings visually-hidden">
+        <!-- <p class="instructions">CLICK ON YOUR FAVORITE</p> -->
       </div>
     </div>
     <button type="button" title="ready-up" class="btn-ready-up">READY</button>

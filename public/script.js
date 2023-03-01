@@ -12,32 +12,42 @@ const colorPickerForm = document.querySelector(".color-picker-form");
 const colorPickerInput = document.querySelector("#picker");
 const sizeSliderEl = document.querySelector(".size-slider");
 const sizeSliderFillEl = document.querySelector(".size-slider--fill");
-const saveDrawingBtn = document.querySelector(".save-drawing");
-const usernameDisplayEl = document.querySelector(".username-display");
+// const saveDrawingBtn = document.querySelector(".save-drawing");
+// const usernameDisplayEl = document.querySelector(".username-display");
 
 const sectionLobby = document.querySelector(".section-lobby");
 const playersHeaderEl = document.querySelector(".players-header");
 const lobbyMembersEl = document.querySelector(".lobby-members");
 const btnReadyUp = document.querySelector(".btn-ready-up");
+const countdownEl = document.querySelector(".countdown");
 
-const debugLogRoomsBtn = document.querySelector(".debug-log-rooms");
+const drawSpaceEl = document.querySelector(".draw-space");
+const wordToDrawEl = document.querySelector(".word-to-draw");
+const inGameCountdownEl = document.querySelector(".in-game-countdown");
+const roomDrawingsEl = document.querySelector(".room-drawings");
+
+// const debugLogRoomsBtn = document.querySelector(".debug-log-rooms");
 
 // these are set later in myPeer open event
 
-const myPeer = new Peer();
+const windowHostName = window.location.hostname;
+const myPeer =
+  windowHostName === "localhost" || windowHostName === "127.0.0.1"
+    ? new Peer(undefined, { host: "localhost", port: 3001 })
+    : new Peer();
 
 // only needed when game starts
 let canvas = createCanvas(null);
 const peers = {};
+const otherUsers = new Map();
 const userData = {};
 
 const myUsername = localStorage.getItem("username");
-usernameDisplayEl.textContent = myUsername;
+// usernameDisplayEl.textContent = myUsername;
 
 let painting = false;
 let localBrushSize = 0.25;
 let colorPickerFocused = false;
-let localPlayerReady = false;
 
 // Set the canvas dimensions to match the window size
 // canvas.width = window.innerWidth;
@@ -61,14 +71,14 @@ myPeer.on("open", (id) => {
   const roomId = window.location.pathname.slice(6);
 
   // if we find a random room, redirect to that room
-  socket.on("found-random-room", (roomId) => {
-    window.location.pathname = `/room/${roomId}`;
+  socket.on("found-random-room", (randomRoomId) => {
+    window.location.pathname = `/room/${randomRoomId}`;
+    return;
   });
 
   // listen for a room full response
-  socket.on("room-full", () => {
-    localStorage.setItem("roomError", "Room is full");
-    window.location.pathname = "/";
+  socket.on("room-error", (message) => {
+    roomError(message);
   });
 
   // if we're not in the 'find' room, join the room with the id from the url
@@ -127,9 +137,51 @@ myPeer.on("open", (id) => {
     }
   });
 
-  socket.on("all-users-ready", () => {
-    console.log("all users ready");
-    startGame();
+  socket.on("countdown", (countdown) => {
+    console.log(`game starting in: `, countdown);
+    countdownEl.classList.remove("visually-hidden");
+    countdownEl.textContent = countdown;
+  });
+
+  socket.on("start-game", (wordToDraw) => {
+    startGame(wordToDraw);
+  });
+
+  socket.on("draw-countdown", (countdown) => {
+    inGameCountdownEl.classList.remove("visually-hidden");
+    inGameCountdownEl.textContent = countdown;
+  });
+
+  socket.on("end-drawing-phase", () => {
+    inGameCountdownEl.classList.add("visually-hidden");
+    drawSpaceEl.classList.add("visually-hidden");
+
+    roomDrawingsEl.classList.remove("visually-hidden");
+
+    // send the drawing data to the server
+    socket.emit("drawing-data", myPeer.id, canvas.toDataURL());
+  });
+  socket.on("drawing-data", (userId, drawingURL) => {
+    if (userId === myPeer.id) return;
+
+    // add the drawing to the room drawings
+    const markup = `<img src="${drawingURL}" alt="drawing from ${
+      otherUsers.get(userId).username
+    }" class="room-img" data-user-id="${userId}" />`;
+    roomDrawingsEl.insertAdjacentHTML("beforeend", markup);
+  });
+
+  socket.on("voting-countdown", (countdown) => {
+    inGameCountdownEl.classList.remove("visually-hidden");
+    inGameCountdownEl.textContent = countdown;
+  });
+
+  socket.on("end-voting-phase", () => {
+    inGameCountdownEl.classList.add("visually-hidden");
+    roomDrawingsEl.classList.add("visually-hidden");
+    roomDrawingsEl.querySelectorAll("img").forEach((img) => img.remove());
+
+    // TODO display players who are out
   });
 
   socket.on("user-disconnected", (userId) => {
@@ -139,28 +191,30 @@ myPeer.on("open", (id) => {
         .querySelector(`.lobby-member[data-user-id='${userId}']`)
         .remove();
       peers[userId].close();
+      otherUsers.delete(userId);
+      delete peers[userId];
     }
   });
 
-  // manageSocketDrawingData();
+  manageSocketDrawingData();
   socket.on("get-open-rooms", (rooms) => {
     console.log(`rooms: `, rooms);
   });
 });
 
 // EVENT LISTENERS----------------------------------------------------------------------------------------
-debugLogRoomsBtn.addEventListener("click", () => {
-  console.log("request open rooms...");
-  socket.emit("get-open-rooms");
-});
+// debugLogRoomsBtn.addEventListener("click", () => {
+//   console.log("request open rooms...");
+//   socket.emit("get-open-rooms");
+// });
 
 // change color of path to selected color
 colorPickerForm.addEventListener("change", () => {
   userData[myPeer.id].color = colorPickerForm.color.value;
-  socket.emit("color-change", {
-    id: myPeer.id,
-    color: colorPickerForm.color.value,
-  });
+  // socket.emit("color-change", {
+  //   id: myPeer.id,
+  //   color: colorPickerForm.color.value,
+  // });
 });
 colorPickerInput.addEventListener("focus", () => {
   colorPickerFocused = true;
@@ -198,18 +252,21 @@ document.addEventListener("mouseup", () => {
 });
 
 // open canvas content in new window as image when save button is clicked
-saveDrawingBtn.addEventListener("click", () => {
-  const dataUrl = canvas.toDataURL("image/png");
-  const newWindow = window.open();
-  newWindow.document.write(
-    `<img style="display: block;-webkit-user-select: none;margin: auto;background-color: hsl(0, 0%, 90%);transition: background-color 300ms;" src="${dataUrl}">`
-  );
-  newWindow.document.querySelector(
-    "body"
-  ).style = `margin: 0px; background: #0e0e0e; height: 100%;display:flex;align-items:center;justify-content:center;`;
-});
+// saveDrawingBtn.addEventListener("click", () => {
+//   const dataUrl = canvas.toDataURL("image/png");
+//   const newWindow = window.open();
+//   newWindow.document.write(
+//     `<img style="display: block;-webkit-user-select: none;margin: auto;background-color: hsl(0, 0%, 90%);transition: background-color 300ms;" src="${dataUrl}">`
+//   );
+//   newWindow.document.querySelector(
+//     "body"
+//   ).style = `margin: 0px; background: #0e0e0e; height: 100%;display:flex;align-items:center;justify-content:center;`;
+// });
 
 btnReadyUp.addEventListener("click", () => {
+  // if there's less than 3 players in the room, don't let them ready up
+  if (Object.keys(peers).length < 2) return;
+
   if (socket) socket.emit("ready-up", myPeer.id);
   btnReadyUp.classList.add("visually-hidden");
   togglePlayerReady(myPeer.id, true);
@@ -220,29 +277,35 @@ btnReadyUp.addEventListener("click", () => {
 //   canvas.classList.add("pointer-events-none");
 // });
 
-function initializePlayerInLobby(userData) {
-  console.log("user data received: ", userData);
+function initializePlayerInLobby(userInfo) {
+  console.log("user data received: ", userInfo);
   // add other user to peers object
-  peers[userData.userId] = connectToNewUser(userData.userId);
+  peers[userInfo.userId] = connectToNewUser(userInfo.userId);
+  otherUsers.set(userInfo.userId, userInfo);
 
   // add other user to lobby list
-  addPlayerToLobbyListUI(userData.userId, userData.username);
+  addPlayerToLobbyListUI(userInfo.userId, userInfo.username);
 
   // if other user is ready, set them as ready
-  togglePlayerReady(userData.userId, userData.isReady);
+  togglePlayerReady(userInfo.userId, userInfo.isReady);
 }
 
-function startGame() {
+function startGame(wordToDraw) {
   console.log("game starting");
-}
+  countdownEl.classList.add("visually-hidden");
 
+  // hide lobby
+  sectionLobby.classList.add("visually-hidden");
+  drawSpaceEl.classList.remove("visually-hidden");
+  wordToDrawEl.textContent = wordToDraw;
+}
 function manageSocketDrawingData() {
   // SENDING MOUSE EVENTS---------------------------------------------------------------
   document.addEventListener("mousedown", startPath);
   document.addEventListener("mouseup", endPath);
   canvas.addEventListener("mouseleave", () => {
     userData[myPeer.id].context.beginPath();
-    socket.emit("end-path", myPeer.id);
+    // socket.emit("end-path", myPeer.id);
   });
 
   canvas.addEventListener("mousemove", (event) => {
@@ -254,7 +317,7 @@ function manageSocketDrawingData() {
     draw(myPeer.id, x, y);
 
     // Send the mouse position to other clients in the same room
-    socket.emit("draw", { id: myPeer.id, x, y });
+    // socket.emit("draw", { id: myPeer.id, x, y });
   });
 
   // RECIEVING MOUSE EVENTS---------------------------------------------------------------
@@ -295,6 +358,13 @@ function createCanvas(userId) {
   }
   localCanvas.width = 500;
   localCanvas.height = 500;
+
+  // initialize context with a white background
+  const localContext = localCanvas.getContext("2d");
+  localContext.clearRect(0, 0, window.innerWidth, window.innerHeight);
+  localContext.fillStyle = "rgba(255,255,255,1)";
+  localContext.fillRect(0, 0, window.innerWidth, window.innerHeight);
+
   canvasContainer.insertAdjacentElement("beforeend", localCanvas);
 
   return localCanvas;
@@ -321,9 +391,8 @@ function startPath(event) {
 }
 function endPath() {
   painting = false;
-  // context.beginPath();
   userData[myPeer.id].context.beginPath();
-  socket.emit("end-path", myPeer.id);
+  // socket.emit("end-path", myPeer.id);
 }
 
 function draw(userId, x, y) {
@@ -360,12 +429,15 @@ function togglePlayerReady(userId, isReady = true) {
     `.lobby-member[data-user-id="${userId}"]`
   );
   playerEl.classList.toggle("user-ready", isReady);
-
-  localPlayerReady = isReady;
 }
 function allPlayersReady() {
   sectionLobby.classList.remove("section-lobby-not-ready");
   lobbyMembersEl.classList.remove("lobby-members-not-ready");
+}
+
+function roomError(errMsg) {
+  localStorage.setItem("roomError", errMsg);
+  window.location.pathname = "/";
 }
 
 function clamp(val, min, max) {
