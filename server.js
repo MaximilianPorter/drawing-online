@@ -30,7 +30,10 @@ class UserData {
   constructor(userId, username) {
     this.userId = userId;
     this.username = username;
+
     this.isReady = false;
+    this.votes = 0;
+    this.eliminated = false;
   }
 }
 
@@ -106,7 +109,12 @@ io.on("connection", (socket) => {
     });
 
     socket.on("get-open-rooms", () => {
-      socket.emit("get-open-rooms", [...rooms]);
+      let port = process.env.PORT;
+      if (port == null || port == "") {
+        socket.emit("get-open-rooms", [...rooms]);
+      } else {
+        socket.emit("get-open-rooms", "not the local host");
+      }
     });
 
     socket.on("get-game-settings", () => {
@@ -148,6 +156,10 @@ io.on("connection", (socket) => {
         // send the event to everyone in the room
         startGameCountdown(roomId);
       }
+    });
+
+    socket.on("vote", (userId) => {
+      getUserInRoom(roomId, userId).votes++;
     });
 
     socket.on("disconnect", () => {
@@ -213,7 +225,7 @@ function startVotingCountdown(roomId, countdownTime) {
   }, 1000);
 }
 function endVotingPhase(roomId) {
-  io.in(roomId).emit("end-voting-phase");
+  io.in(roomId).emit("end-voting-phase", rooms.get(roomId).users);
 }
 
 function getUserInRoom(roomId, userId) {
@@ -225,10 +237,8 @@ function removeUserFromRoom(roomId, userId) {
 
   rooms.get(roomId).users = rooms
     .get(roomId)
-    ?.users.filter((user) => user.userId !== userId);
+    .users.filter((user) => user.userId !== userId);
 }
-
-function checkRoomAvailable(roomId, roomData) {}
 
 function randomWord() {
   return words[Math.floor(Math.random() * words.length)];

@@ -25,6 +25,7 @@ const drawSpaceEl = document.querySelector(".draw-space");
 const wordToDrawEl = document.querySelector(".word-to-draw");
 const inGameCountdownEl = document.querySelector(".in-game-countdown");
 const roomDrawingsEl = document.querySelector(".room-drawings");
+const votingInstructionsEl = document.querySelector(".voting-instructions");
 
 // const debugLogRoomsBtn = document.querySelector(".debug-log-rooms");
 
@@ -48,6 +49,8 @@ const myUsername = localStorage.getItem("username");
 let painting = false;
 let localBrushSize = 0.25;
 let colorPickerFocused = false;
+let votingPhase = false;
+let votesGiven = 0;
 
 // Set the canvas dimensions to match the window size
 // canvas.width = window.innerWidth;
@@ -150,6 +153,8 @@ myPeer.on("open", (id) => {
   socket.on("draw-countdown", (countdown) => {
     inGameCountdownEl.classList.remove("visually-hidden");
     inGameCountdownEl.textContent = countdown;
+    votingPhase = false;
+    votesGiven = 0;
   });
 
   socket.on("end-drawing-phase", () => {
@@ -159,29 +164,24 @@ myPeer.on("open", (id) => {
     roomDrawingsEl.classList.remove("visually-hidden");
 
     // send the drawing data to the server
-    socket.emit("drawing-data", myPeer.id, canvas.toDataURL());
+    const drawingURL = canvas.toDataURL();
+    addDrawingToGrid(myPeer.id, drawingURL);
+    socket.emit("drawing-data", myPeer.id, drawingURL);
   });
   socket.on("drawing-data", (userId, drawingURL) => {
-    if (userId === myPeer.id) return;
-
     // add the drawing to the room drawings
-    const markup = `<img src="${drawingURL}" alt="drawing from ${
-      otherUsers.get(userId).username
-    }" class="room-img" data-user-id="${userId}" />`;
-    roomDrawingsEl.insertAdjacentHTML("beforeend", markup);
+    addDrawingToGrid(userId, drawingURL);
   });
 
   socket.on("voting-countdown", (countdown) => {
+    votingPhase = true;
+    votingInstructionsEl.classList.remove("visually-hidden");
     inGameCountdownEl.classList.remove("visually-hidden");
     inGameCountdownEl.textContent = countdown;
   });
 
-  socket.on("end-voting-phase", () => {
-    inGameCountdownEl.classList.add("visually-hidden");
-    roomDrawingsEl.classList.add("visually-hidden");
-    roomDrawingsEl.querySelectorAll("img").forEach((img) => img.remove());
-
-    // TODO display players who are out
+  socket.on("end-voting-phase", (userVotes) => {
+    endVotingPhase(userVotes);
   });
 
   socket.on("user-disconnected", (userId) => {
@@ -272,6 +272,17 @@ btnReadyUp.addEventListener("click", () => {
   togglePlayerReady(myPeer.id, true);
 });
 
+roomDrawingsEl.addEventListener("click", (event) => {
+  const imgClicked = event.target.closest(".room-img");
+
+  if (imgClicked && votingPhase && votesGiven < 1) {
+    if (imgClicked.dataset.userId === myPeer.id) return; // don't let user vote for themselves
+    votesGiven++;
+    imgClicked.closest(".room-img-container").classList.add("voted-container");
+    socket.emit("vote", imgClicked.dataset.userId);
+  }
+});
+
 // if color picker form is open, disabled canvas mouse events
 // colorPickerForm.addEventListener("mousedown", () => {
 //   canvas.classList.add("pointer-events-none");
@@ -314,6 +325,7 @@ function manageSocketDrawingData() {
     const y = event.clientY - canvas.offsetTop;
 
     // Draw a red circle at the current mouse position
+    if (drawSpaceEl.classList.contains("visually-hidden")) return;
     draw(myPeer.id, x, y);
 
     // Send the mouse position to other clients in the same room
@@ -361,9 +373,19 @@ function createCanvas(userId) {
 
   // initialize context with a white background
   const localContext = localCanvas.getContext("2d");
-  localContext.clearRect(0, 0, window.innerWidth, window.innerHeight);
+  localContext.clearRect(
+    localCanvas.getBoundingClientRect().x,
+    localCanvas.getBoundingClientRect().y,
+    localCanvas.width,
+    localCanvas.height
+  );
   localContext.fillStyle = "rgba(255,255,255,1)";
-  localContext.fillRect(0, 0, window.innerWidth, window.innerHeight);
+  localContext.fillRect(
+    localCanvas.getBoundingClientRect().x,
+    localCanvas.getBoundingClientRect().y,
+    localCanvas.width,
+    localCanvas.height
+  );
 
   canvasContainer.insertAdjacentElement("beforeend", localCanvas);
 
@@ -438,6 +460,57 @@ function allPlayersReady() {
 function roomError(errMsg) {
   localStorage.setItem("roomError", errMsg);
   window.location.pathname = "/";
+}
+
+function addDrawingToGrid(userId, drawingURL) {
+  const markup = `
+    <div class="room-img-container">
+      <div class="img-vote-overlay">
+        <span class="img-vote-count">0</span>
+      </div>
+      <img src="${drawingURL}" alt="drawing from ${
+    otherUsers.get(userId)?.username ?? "YOU"
+  }" class="room-img" data-user-id="${userId}" />
+      <span class="drawing-username ${
+        userId === myPeer.id ? "" : "visually-hidden"
+      }">${otherUsers.get(userId)?.username ?? "YOU"}</span>
+    </div>`;
+  roomDrawingsEl.insertAdjacentHTML("beforeend", markup);
+}
+
+function endVotingPhase(userVotes) {
+  votingPhase = false;
+  votesGiven = 0;
+  votingInstructionsEl.classList.add("visually-hidden");
+  inGameCountdownEl.classList.add("visually-hidden");
+  // roomDrawingsEl.classList.add("visually-hidden");
+
+  // show the names of each player on their drawings
+  const imgContainers = roomDrawingsEl.querySelectorAll(".room-img-container");
+
+  imgContainers.forEach((container) =>
+    container
+      .querySelector(".drawing-username")
+      .classList.remove("visually-hidden")
+  );
+
+  const max = Math.max(...userVotes.map((user) => user.votes));
+
+  // show the votes for each player
+  for (const { userId, votes } of userVotes) {
+    const container = roomDrawingsEl
+      .querySelector(`.room-img[data-user-id='${userId}']`)
+      .closest(".room-img-container");
+
+    if (!container) continue; // if the user left or something idk
+
+    container.querySelector(".img-vote-count").textContent = votes;
+    container.querySelector(".img-vote-overlay").style.height = `${
+      (votes / max) * 100
+    }%`;
+  }
+
+  // TODO display players who are out
 }
 
 function clamp(val, min, max) {

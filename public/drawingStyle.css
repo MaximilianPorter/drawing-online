@@ -224,10 +224,24 @@ body {
   transform: translate(-50%, -50%);
   font-size: 10rem;
   font-weight: 700;
-  -webkit-text-stroke: 0.2rem var(--primary-light);
+  -webkit-text-stroke: 0.2rem var(--gray);
   paint-order: stroke fill;
-  color: var(--primary);
-  filter: drop-shadow(0 0 15px rgba(0, 0, 0, 0.5));
+  color: var(--white);
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+.voting-instructions {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, 0);
+
+  text-align: center;
+  font-size: 1.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--white);
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
 }
 
 .room-drawings {
@@ -236,11 +250,80 @@ body {
   justify-items: center;
   justify-content: center;
   gap: 1rem;
+  padding: 1rem;
+  border: 5px solid var(--gray);
+  border-radius: 30px;
   width: 80vw;
+  max-height: 90vh;
+  -ms-overflow-style: none; /* for Internet Explorer, Edge */
+  scrollbar-width: none; /* for Firefox  */
+  overflow-y: scroll;
+  overflow-x: hidden;
+
   margin: 0 auto;
+  margin-top: 3.6rem;
+}
+
+.room-drawings::-webkit-scrollbar {
+  display: none;
+}
+
+.room-img-container {
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px;
+  cursor: pointer;
+
+  border: 5px solid transparent;
+  transition: all 0.2s ease-in-out;
+}
+
+.voted-container {
+  border: 5px solid var(--primary);
+}
+.room-img-container:hover:not(.voted-container) {
+  border: 5px solid var(--gray);
 }
 
 .room-img {
-  border-radius: 20px;
   width: 100%;
+  height: 100%;
+}
+
+.drawing-username {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+
+  text-align: right;
+  font-size: 2.4rem;
+  font-weight: 700;
+  color: var(--white);
+
+  opacity: 0.8;
+
+  border-radius: 10px;
+  padding: 0.5rem;
+  background-color: var(--gray);
+}
+
+.img-vote-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 0%;
+  background-color: var(--primary);
+  opacity: 0.5;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 7.2rem;
+  font-weight: 700;
+  color: var(--white);
+
+  transition: all 1s ease;
+}
+.img-vote-count {
 }
