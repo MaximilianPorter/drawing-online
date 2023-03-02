@@ -33,7 +33,7 @@ class UserData {
 
     this.isReady = false;
     this.votes = 0;
-    this.eliminated = false;
+    this.isEliminated = false;
   }
 }
 
@@ -134,6 +134,9 @@ io.on("connection", (socket) => {
     });
 
     socket.on("drawing-data", (userId, drawingURL) => {
+      // return if user is eliminated
+      if (getUserInRoom(roomId, userId).isEliminated) return;
+
       socket.to(roomId).emit("drawing-data", userId, drawingURL);
       // socket.to(roomId).emit('drawing-data', data)
     });
@@ -225,7 +228,86 @@ function startVotingCountdown(roomId, countdownTime) {
   }, 1000);
 }
 function endVotingPhase(roomId) {
-  io.in(roomId).emit("end-voting-phase", rooms.get(roomId).users);
+  io.in(roomId).emit(
+    "end-voting-phase",
+    rooms.get(roomId).users.filter((user) => !user.isEliminated)
+  );
+
+  // wait 3 seconds before displaying who got eliminated
+  setTimeout(() => {
+    eliminateUsers(roomId);
+  }, 3000);
+}
+
+function eliminateUsers(roomId) {
+  // check if there's already 1 person left (idk why this would happen tho)
+  if (
+    rooms.get(roomId).users.length === 1 ||
+    rooms.get(roomId).users.filter((user) => !user.isEliminated).length === 1
+  ) {
+    io.in(roomId).emit("game-over", rooms.get(roomId).users[0].userId);
+    return;
+  }
+
+  const users = rooms.get(roomId).users.filter((user) => !user.isEliminated);
+  const lowestVotes = Math.min(...users.map((user) => user.votes));
+  const highestVotes = Math.max(...users.map((user) => user.votes));
+  const eliminatedUserIds = [];
+
+  if (users.length <= 3) {
+    // if votes are all tied, nobody gets eliminated
+    if (users.every((user) => user.votes === lowestVotes)) {
+      // nothing
+    } else {
+      // if votes are not tied, eliminate everyone except the user with the most votes
+      users.forEach((user) => {
+        if (user.votes !== highestVotes) {
+          user.isEliminated = true;
+          eliminatedUserIds.push(user.userId);
+        }
+      });
+    }
+    io.in(roomId).emit("users-eliminated", eliminatedUserIds);
+  } else if (users.length === 4) {
+    // only eliminate 1 person if there are 4 players
+    for (const user of users) {
+      if (user.votes === lowestVotes) {
+        user.isEliminated = true;
+        io.in(roomId).emit("users-eliminated", [user.userId]);
+        // eliminatedUserIds.push(user.userId);
+        break;
+      }
+    }
+  } else {
+    // if votes are not tied, eliminate the user with the least votes and everyone with 0 votes
+    users.forEach((user) => {
+      if (
+        (user.votes === lowestVotes || user.votes === 0) &&
+        eliminatedUserIds.length < users.length - 3
+      ) {
+        user.isEliminated = true;
+        eliminatedUserIds.push(user.userId);
+      }
+    });
+    io.in(roomId).emit("users-eliminated", eliminatedUserIds);
+  }
+
+  // check if everyone is eliminated except 1 person
+  const remainingUsers = rooms
+    .get(roomId)
+    .users.filter((user) => !user.isEliminated);
+  if (remainingUsers.length === 1) {
+    io.in(roomId).emit("game-over", remainingUsers[0].userId);
+    return;
+  }
+
+  // reset votes
+  users.forEach((user) => (user.votes = 0));
+
+  // start another round
+  setTimeout(() => {
+    startGameCountdown(roomId);
+  }, 3000);
 }
 
 function getUserInRoom(roomId, userId) {

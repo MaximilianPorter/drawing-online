@@ -1,4 +1,4 @@
-class UserData {
+class UserCanvasProperties {
   constructor(canvasContext) {
     this.context = canvasContext;
     this.color = "#000000";
@@ -20,6 +20,7 @@ const playersHeaderEl = document.querySelector(".players-header");
 const lobbyMembersEl = document.querySelector(".lobby-members");
 const btnReadyUp = document.querySelector(".btn-ready-up");
 const countdownEl = document.querySelector(".countdown");
+const eliminatedMsgEl = document.querySelector(".eliminated-message");
 
 const drawSpaceEl = document.querySelector(".draw-space");
 const wordToDrawEl = document.querySelector(".word-to-draw");
@@ -38,10 +39,10 @@ const myPeer =
     : new Peer();
 
 // only needed when game starts
-let canvas = createCanvas(null);
 const peers = {};
 const otherUsers = new Map();
-const userData = {};
+const userCanvasProperties = {};
+let canvas = createCanvas(null);
 
 const myUsername = localStorage.getItem("username");
 // usernameDisplayEl.textContent = myUsername;
@@ -51,6 +52,7 @@ let localBrushSize = 0.25;
 let colorPickerFocused = false;
 let votingPhase = false;
 let votesGiven = 0;
+let isEliminated = false;
 
 // Set the canvas dimensions to match the window size
 // canvas.width = window.innerWidth;
@@ -68,7 +70,9 @@ myPeer.on("open", (id) => {
   });
 
   // create a new user data object for the local user
-  userData[myPeer.id] = new UserData(canvas.getContext("2d"));
+  userCanvasProperties[myPeer.id] = new UserCanvasProperties(
+    canvas.getContext("2d")
+  );
 
   // get the room id from the url
   const roomId = window.location.pathname.slice(6);
@@ -160,13 +164,16 @@ myPeer.on("open", (id) => {
   socket.on("end-drawing-phase", () => {
     inGameCountdownEl.classList.add("visually-hidden");
     drawSpaceEl.classList.add("visually-hidden");
+    eliminatedMsgEl.classList.add("visually-hidden");
 
     roomDrawingsEl.classList.remove("visually-hidden");
 
-    // send the drawing data to the server
-    const drawingURL = canvas.toDataURL();
-    addDrawingToGrid(myPeer.id, drawingURL);
-    socket.emit("drawing-data", myPeer.id, drawingURL);
+    if (!isEliminated) {
+      // send the drawing data to the server
+      const drawingURL = canvas.toDataURL();
+      addDrawingToGrid(myPeer.id, drawingURL);
+      socket.emit("drawing-data", myPeer.id, drawingURL);
+    }
   });
   socket.on("drawing-data", (userId, drawingURL) => {
     // add the drawing to the room drawings
@@ -174,6 +181,7 @@ myPeer.on("open", (id) => {
   });
 
   socket.on("voting-countdown", (countdown) => {
+    if (!votingPhase) console.log("begin voting phase");
     votingPhase = true;
     votingInstructionsEl.classList.remove("visually-hidden");
     inGameCountdownEl.classList.remove("visually-hidden");
@@ -182,6 +190,29 @@ myPeer.on("open", (id) => {
 
   socket.on("end-voting-phase", (userVotes) => {
     endVotingPhase(userVotes);
+  });
+
+  socket.on("users-eliminated", (usersEliminated) => {
+    // if our id is in the list of eliminated users, we're eliminated
+    if (usersEliminated.some((eliminatedId) => eliminatedId === myPeer.id)) {
+      isEliminated = true;
+    }
+
+    // show the eliminated users screen
+    showEliminatedUsersScreen(usersEliminated);
+
+    // remove the eliminated users from the lobby list
+    usersEliminated.forEach((user) => {
+      // if (otherUsers.has(user.userId)) otherUsers.delete(user.userId);
+
+      document
+        .querySelector(`.lobby-member[data-user-id='${user.userId}']`)
+        ?.remove();
+    });
+  });
+
+  socket.on("game-over", (winnerId) => {
+    showWinnerScreen(winnerId);
   });
 
   socket.on("user-disconnected", (userId) => {
@@ -210,7 +241,7 @@ myPeer.on("open", (id) => {
 
 // change color of path to selected color
 colorPickerForm.addEventListener("change", () => {
-  userData[myPeer.id].color = colorPickerForm.color.value;
+  userCanvasProperties[myPeer.id].color = colorPickerForm.color.value;
   // socket.emit("color-change", {
   //   id: myPeer.id,
   //   color: colorPickerForm.color.value,
@@ -243,7 +274,7 @@ document.addEventListener("mousemove", (event) => {
 document.addEventListener("mouseup", () => {
   if (changingBrushSize) {
     changingBrushSize = false;
-    userData[myPeer.id].brushSize = localBrushSize;
+    userCanvasProperties[myPeer.id].brushSize = localBrushSize;
     // socket.emit("brush-size-change", {
     //   id: myPeer.id,
     //   brushSize: localBrushSize,
@@ -305,9 +336,23 @@ function startGame(wordToDraw) {
   console.log("game starting");
   countdownEl.classList.add("visually-hidden");
 
+  // remove drawings from previous round
+  roomDrawingsEl
+    .querySelectorAll(".room-img-container")
+    .forEach((el) => el.remove());
+  roomDrawingsEl.classList.add("visually-hidden");
+
+  // reset canvas
+  resetCanvas(canvas, canvas.getContext("2d"));
+
   // hide lobby
   sectionLobby.classList.add("visually-hidden");
-  drawSpaceEl.classList.remove("visually-hidden");
+  if (isEliminated) {
+    // enable eliminated message
+    eliminatedMsgEl.classList.remove("visually-hidden");
+  } else {
+    drawSpaceEl.classList.remove("visually-hidden");
+  }
   wordToDrawEl.textContent = wordToDraw;
 }
 function manageSocketDrawingData() {
@@ -315,7 +360,7 @@ function manageSocketDrawingData() {
   document.addEventListener("mousedown", startPath);
   document.addEventListener("mouseup", endPath);
   canvas.addEventListener("mouseleave", () => {
-    userData[myPeer.id].context.beginPath();
+    userCanvasProperties[myPeer.id].context.beginPath();
     // socket.emit("end-path", myPeer.id);
   });
 
@@ -344,19 +389,20 @@ function manageSocketDrawingData() {
   socket.on("end-path", (data) => {
     if (data !== myPeer.id) {
       // console.log(data);
-      if (userData[data]) userData[data].context.beginPath();
+      if (userCanvasProperties[data])
+        userCanvasProperties[data].context.beginPath();
     }
   });
 
   socket.on("color-change", (data) => {
     if (data.id !== myPeer.id) {
-      userData[data.id].color = data.color;
+      userCanvasProperties[data.id].color = data.color;
     }
   });
 
   socket.on("brush-size-change", (data) => {
     if (data.id !== myPeer.id) {
-      userData[data.id].brushSize = data.brushSize;
+      userCanvasProperties[data.id].brushSize = data.brushSize;
     }
   });
 }
@@ -373,23 +419,27 @@ function createCanvas(userId) {
 
   // initialize context with a white background
   const localContext = localCanvas.getContext("2d");
-  localContext.clearRect(
-    localCanvas.getBoundingClientRect().x,
-    localCanvas.getBoundingClientRect().y,
-    localCanvas.width,
-    localCanvas.height
-  );
-  localContext.fillStyle = "rgba(255,255,255,1)";
-  localContext.fillRect(
-    localCanvas.getBoundingClientRect().x,
-    localCanvas.getBoundingClientRect().y,
-    localCanvas.width,
-    localCanvas.height
-  );
+  resetCanvas(localCanvas, localContext);
 
   canvasContainer.insertAdjacentElement("beforeend", localCanvas);
 
   return localCanvas;
+}
+
+function resetCanvas(canvasToReset, context) {
+  context.clearRect(
+    canvasToReset.getBoundingClientRect().x,
+    canvasToReset.getBoundingClientRect().y,
+    canvasToReset.width,
+    canvasToReset.height
+  );
+  context.fillStyle = "rgba(255,255,255,1)";
+  context.fillRect(
+    canvasToReset.getBoundingClientRect().x,
+    canvasToReset.getBoundingClientRect().y,
+    canvasToReset.width,
+    canvasToReset.height
+  );
 }
 
 function connectToNewUser(userId) {
@@ -413,20 +463,22 @@ function startPath(event) {
 }
 function endPath() {
   painting = false;
-  userData[myPeer.id].context.beginPath();
+  userCanvasProperties[myPeer.id].context.beginPath();
   // socket.emit("end-path", myPeer.id);
 }
 
 function draw(userId, x, y) {
-  userData[userId].context.strokeStyle = userData[userId].color;
-  userData[userId].context.lineCap = "round";
-  userData[userId].context.lineWidth = userData[userId].brushSize * 50;
-  userData[userId].context.lineJoin = "round";
+  userCanvasProperties[userId].context.strokeStyle =
+    userCanvasProperties[userId].color;
+  userCanvasProperties[userId].context.lineCap = "round";
+  userCanvasProperties[userId].context.lineWidth =
+    userCanvasProperties[userId].brushSize * 50;
+  userCanvasProperties[userId].context.lineJoin = "round";
 
-  userData[userId].context.lineTo(x, y);
-  userData[userId].context.stroke();
-  userData[userId].context.beginPath();
-  userData[userId].context.moveTo(x, y);
+  userCanvasProperties[userId].context.lineTo(x, y);
+  userCanvasProperties[userId].context.stroke();
+  userCanvasProperties[userId].context.beginPath();
+  userCanvasProperties[userId].context.moveTo(x, y);
 }
 
 function addPlayerToLobbyListUI(userId, playerUsername) {
@@ -466,7 +518,7 @@ function addDrawingToGrid(userId, drawingURL) {
   const markup = `
     <div class="room-img-container">
       <div class="img-vote-overlay">
-        <span class="img-vote-count">0</span>
+        <span class="img-vote-count visually-hidden">0</span>
       </div>
       <img src="${drawingURL}" alt="drawing from ${
     otherUsers.get(userId)?.username ?? "YOU"
@@ -504,13 +556,24 @@ function endVotingPhase(userVotes) {
 
     if (!container) continue; // if the user left or something idk
 
-    container.querySelector(".img-vote-count").textContent = votes;
-    container.querySelector(".img-vote-overlay").style.height = `${
-      (votes / max) * 100
-    }%`;
+    const voteCountEl = container.querySelector(".img-vote-count");
+    voteCountEl.classList.remove("visually-hidden");
+    voteCountEl.textContent = votes;
+    const voteOverlay = container.querySelector(".img-vote-overlay");
+    voteOverlay.style.height = `${(votes / max) * 100}%`;
   }
+}
 
-  // TODO display players who are out
+function showEliminatedUsersScreen(users) {
+  console.log(`showing eliminated users screen with users:`, users);
+}
+
+function showWinnerScreen(winnerId) {
+  console.log(
+    winnerId === myPeer.id
+      ? "YOU WIN"
+      : `${otherUsers.get(winnerId).username} WINS`
+  );
 }
 
 function clamp(val, min, max) {
